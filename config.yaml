@@ -1,0 +1,50 @@
+# ── Asset Universe ──────────────────────────────────────────────────────────
+assets:
+  equities:    [SPY, EEM]
+  bonds:       [LQD, HYG, TLT]
+  commodities: [GLD, USO]
+  crypto:      [BTC-USD, ETH-USD]
+  macro:       [DX-Y.NYB]   # DXY proxy via yfinance
+
+# ── Date Ranges ─────────────────────────────────────────────────────────────
+dates:
+  start:     "2015-01-01"
+  end:       "2024-12-31"
+  train_end: "2020-12-31"
+  val_end:   "2022-12-31"
+  # test is implicitly val_end → end
+
+# ── Graph Construction ───────────────────────────────────────────────────────
+graph:
+  rolling_window_days: 60
+  update_frequency:    "W"      # weekly snapshots
+  corr_threshold:      0.3      # minimum |r| to include an edge
+
+# ── Node Features ────────────────────────────────────────────────────────────
+features:
+  vol_window_days: 30           # realized volatility lookback
+  regime_states:   3            # HMM states: calm / stress / crisis
+
+# ── Model ────────────────────────────────────────────────────────────────────
+model:
+  name:         "evolvegcn_h"
+  hidden_dim:   64
+  num_layers:   2
+  dropout:      0.3
+
+# ── Training ─────────────────────────────────────────────────────────────────
+training:
+  epochs:        200
+  lr:            0.001
+  batch_size:    32
+  early_stopping_patience: 20
+  seed:          42
+
+# ── Forecasting Horizons ─────────────────────────────────────────────────────
+horizons: [1, 5, 10]            # t+1, t+5, t+10 days
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+paths:
+  raw:       data/raw/
+  processed: data/processed/
+  results:   results/

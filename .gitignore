@@ -1,0 +1,9 @@
+data/raw/
+data/processed/
+results/
+*.pkl
+*.pt
+*.pth
+__pycache__/
+.env
+wandb/
