@@ -173,37 +173,45 @@ class EvolveGCNH(nn.Module):
             nn.Linear(hidden_dim // 2, 1)
         )
 
-    def forward(self, snapshots):
+    def forward(self, snapshots, return_states=False):
         """
         Args:
-            snapshots : list of (x, edge_index, edge_weight) tuples,
-                        one per weekly timestep.
+            snapshots     : list of (x, edge_index, edge_weight) tuples
+            return_states : if True, also return W matrices and node embeddings
+                            per timestep — used in evaluate.py for regime analysis
+                            and contagion map generation
 
         Returns:
-            dict with keys "t1", "t5", "t10"
-            each value shape : (num_timesteps, num_nodes, 1)
+            predictions : dict {"t1", "t5", "t10"}, each (T, N, 1)
+            states      : (only if return_states=True)
+                          dict with:
+                            "w_norms"    : (T, num_layers) — Frobenius norm of W per layer
+                            "embeddings" : (T, N, hidden_dim) — final node embeddings
         """
 
-        preds = {"t1": [], "t5": [], "t10": []}
+        preds      = {"t1": [], "t5": [], "t10": []}
+        w_norms    = []   # Frobenius norm of each layer's W per timestep
+        embeddings = []   # final node embeddings per timestep
 
-        # W_current carries the evolved weight across timesteps (model memory)
-        # .clone() keeps it in the computation graph — no .data, no detach
         W_current = [w.clone() for w in self.W]
 
         for x, edge_index, edge_weight in snapshots:
 
-            h = x
+            h              = x
+            timestep_norms = []
 
             for i in range(self.num_layers):
 
-                # ── EvolveGCN-H update ────────────────────────────────────
-                # Flatten → GRU → reshape. All in computation graph.
                 W_flat       = W_current[i].view(1, -1)
                 W_evolved    = self.grus[i](W_flat, W_flat)
                 W_current[i] = W_evolved.view(self.w_shapes[i])
 
-                # ── Graph convolution ─────────────────────────────────────
-                # W passed as argument — gradient flows through it naturally
+                if return_states:
+                    # Frobenius norm = sqrt(sum of squared elements)
+                    # Measures how "active" the weight matrix is at this timestep
+                    norm = W_current[i].detach().norm(p='fro').item()
+                    timestep_norms.append(norm)
+
                 h = self.convs[i](h, edge_index, edge_weight, W_current[i])
                 h = torch.relu(h)
                 h = self.dropout(h)
@@ -211,7 +219,20 @@ class EvolveGCNH(nn.Module):
             for horizon, predictor in self.predictors.items():
                 preds[horizon].append(predictor(h))
 
-        return {k: torch.stack(v, dim=0) for k, v in preds.items()}
+            if return_states:
+                w_norms.append(timestep_norms)
+                embeddings.append(h.detach())   # (N, hidden_dim)
+
+        predictions = {k: torch.stack(v, dim=0) for k, v in preds.items()}
+
+        if return_states:
+            states = {
+                "w_norms":    torch.tensor(w_norms, dtype=torch.float),  # (T, L)
+                "embeddings": torch.stack(embeddings, dim=0),            # (T, N, H)
+            }
+            return predictions, states
+
+        return predictions
 
 
 # ─────────────────────────────────────────────────────────────────────────────
