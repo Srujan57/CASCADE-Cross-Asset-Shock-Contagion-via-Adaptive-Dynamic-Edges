@@ -337,33 +337,42 @@ def swap_in_dcc_edges(snapshots, dcc_path, asset_names, threshold=0.3):
     """
     Replace rolling correlation edge weights with DCC-GARCH correlations.
 
-    Call this after Ryan delivers data/processed/dcc_correlations.pkl.
-    Expected format: dict mapping pd.Timestamp → np.array (num_assets, num_assets)
-
-    Args:
-        snapshots    : existing snapshot list
-        dcc_path     : path to dcc_correlations.pkl
-        asset_names  : ordered list of asset names (must match DCC matrix order)
-        threshold    : edge inclusion threshold
-
-    Returns:
-        updated snapshot list with DCC edge weights
+    Ryan's DCC dict is keyed by DAILY dates. Snapshots are WEEKLY.
+    We find the nearest DCC date within 7 days of each snapshot date
+    rather than requiring exact match (which would silently skip everything).
     """
     with open(dcc_path, "rb") as f:
         dcc_data = pickle.load(f)
 
+    dcc_dates = sorted(dcc_data.keys())
+    dcc_dates_ts = pd.DatetimeIndex(dcc_dates)
+
     updated = []
     swapped = 0
+    no_match = 0
+
     for x, edge_index, edge_weight, date in snapshots:
-        if date in dcc_data:
-            dcc_matrix = np.nan_to_num(dcc_data[date], nan=0.0)
-            ei, ew = build_edge_index_and_weights(dcc_matrix, threshold=threshold)
+        # Find nearest DCC date within 7 calendar days
+        diffs = abs(dcc_dates_ts - date)
+        nearest_idx = diffs.argmin()
+        nearest_diff = diffs[nearest_idx].days
+
+        if nearest_diff <= 7:
+            dcc_matrix = np.nan_to_num(
+                dcc_data[dcc_dates[nearest_idx]], nan=0.0
+            )
+            ei, ew = build_edge_index_and_weights(
+                dcc_matrix, threshold=threshold
+            )
             updated.append((x, ei, ew, date))
             swapped += 1
         else:
+            # No DCC data within 7 days — keep rolling correlation
             updated.append((x, edge_index, edge_weight, date))
+            no_match += 1
 
-    print(f"DCC edges: swapped {swapped}/{len(snapshots)} snapshots")
+    print(f"DCC edges: swapped {swapped}/{len(snapshots)} snapshots "
+          f"({no_match} kept rolling corr — no nearby DCC date)")
     return updated
 
 

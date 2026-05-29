@@ -172,38 +172,56 @@ def compute_granger_causality(returns_df):
 
 def compute_regime_labels(returns_df):
     """
-    Regime detection using VIX percentile thresholds + K-means clustering.
-    Produces same 3 states as HMM: 0=calm, 1=stress, 2=crisis.
-    Uses only numpy/scipy/sklearn — no C++ compilation needed.
+    Regime detection using VIX LEVELS + K-means clustering.
+
+    Critical fix: returns_df["VIX"] contains VIX LOG RETURNS, not levels.
+    K-means on returns is meaningless for regime detection because a +10%
+    VIX return looks identical whether VIX is at 12 (calm) or 40 (crisis).
+    We download VIX closing prices directly so the cluster centroids
+    correspond to actual volatility regimes.
     """
     print("=" * 55)
-    print("STEP 3: Regime detection (VIX + K-means)...")
+    print("STEP 3: Regime detection (VIX levels + K-means)...")
     print("=" * 55)
 
+    import yfinance as yf
     from sklearn.cluster import KMeans
     from sklearn.preprocessing import StandardScaler
 
-    vix     = returns_df[VIX_COL]
+    # Download VIX price LEVELS (not returns)
+    print("  Downloading VIX levels from Yahoo Finance...")
+    start_str = str(returns_df.index[0].date())
+    end_str   = str((returns_df.index[-1] + pd.Timedelta(days=10)).date())
+    vix_raw   = yf.download("^VIX", start=start_str, end=end_str,
+                             progress=False)["Close"].squeeze()
+    vix_raw.index = pd.to_datetime(vix_raw.index)
+    if hasattr(vix_raw.index, "tz") and vix_raw.index.tz is not None:
+        vix_raw.index = vix_raw.index.tz_localize(None)
+
+    # Align to returns index
+    vix_levels = vix_raw.reindex(returns_df.index).ffill().bfill()
+    print(f"  VIX level range : {vix_levels.min():.1f} to {vix_levels.max():.1f}")
+
+    # Credit stress and equity vol features (still use rolling returns vol)
     hy_vol  = returns_df["HYG"].rolling(20).std()
     ig_vol  = returns_df["LQD"].rolling(20).std()
     spread  = (hy_vol - ig_vol).fillna(0)
     spy_vol = returns_df["SPY"].rolling(20).std().fillna(0)
 
     features = pd.DataFrame({
-        "VIX":     vix,
-        "spread":  spread,
-        "spy_vol": spy_vol
+        "VIX_level": vix_levels,   # level, not return
+        "spread":    spread,
+        "spy_vol":   spy_vol,
     }).dropna()
 
     scaler = StandardScaler()
     X = scaler.fit_transform(features.values)
 
-    # K-means with 3 clusters — deterministic with fixed seed
     kmeans = KMeans(n_clusters=N_REGIMES, random_state=42, n_init=10)
     raw_labels = kmeans.fit_predict(X)
 
-    # Order clusters by mean VIX: lowest = calm (0), highest = crisis (2)
-    vix_vals = features["VIX"].values
+    # Order clusters by mean VIX LEVEL: lowest = calm (0), highest = crisis (2)
+    vix_vals = features["VIX_level"].values
     cluster_vix_means = [vix_vals[raw_labels == c].mean() for c in range(N_REGIMES)]
     order = np.argsort(cluster_vix_means)
     remap = {old: new for new, old in enumerate(order)}
@@ -216,7 +234,8 @@ def compute_regime_labels(returns_df):
     print("  Regime distribution:")
     for state, count in counts.items():
         pct = 100 * count / len(labels)
-        print(f"    {names[state]:8s} (label={state}): {count} days ({pct:.1f}%)")
+        bar = "█" * int(pct / 2)
+        print(f"    {names[state]:8s} (label={state}): {count:>5} days ({pct:.1f}%) {bar}")
 
     out_path = os.path.join(PROCESSED_PATH, "regime_labels.csv")
     regime_series.to_csv(out_path, header=True)
