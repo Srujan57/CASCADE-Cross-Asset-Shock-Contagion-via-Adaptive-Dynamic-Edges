@@ -1,10 +1,31 @@
+# ── Data ────────────────────────────────────────────────
 data/raw/
 data/processed/
-results/
-*.pkl
+
+# ── Results: keep CSVs and figures, ignore large binaries ─
+results/checkpoints/
+results/*.pkl
+results/wandb/
+
+# ── Model weights ────────────────────────────────────────
 *.pt
 *.pth
+
+# ── Python ───────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*.egg-info/
+
+# ── Environment ──────────────────────────────────────────
 .env
-wandb/
 venv/
+.venv/
+
+# ── WandB ────────────────────────────────────────────────
+wandb/
+
+# ── OS / editor ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
