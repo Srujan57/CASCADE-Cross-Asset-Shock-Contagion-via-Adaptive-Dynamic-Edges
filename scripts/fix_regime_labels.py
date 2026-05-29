@@ -1,17 +1,21 @@
 """
-Cross-Asset Contagion Project — Regime Label Fix
+Cross-Asset Contagion Project — Regime Label Fix (v2)
 Ryan: Data & Econometrics Lead
 
-Fix: Pull raw VIX levels directly from Yahoo Finance
-     (returns_matrix.csv has log returns, not VIX levels)
+Fix: Output BOTH daily and weekly regime labels so Srujan's
+     build_graphs.py swap_in_regime_labels() finds exact date matches.
 
 VIX thresholds:
-  VIX < 20  → calm   (label=0)
-  VIX 20-30 → stress (label=1)
-  VIX > 30  → crisis (label=2)
+  VIX < 20  → calm   (label=0) ~60-70%
+  VIX 20-30 → stress (label=1) ~20-25%
+  VIX > 30  → crisis (label=2) ~5-10%
 
 Run from repo root:
     python scripts/fix_regime_labels.py
+
+Outputs:
+    data/processed/regime_labels.csv         (daily — original)
+    data/processed/regime_labels_weekly.csv  (weekly — for build_graphs.py)
 """
 
 import pandas as pd
@@ -30,78 +34,85 @@ END_DATE             = "2024-12-31"
 
 
 def get_vix_levels():
-    """Pull raw VIX closing levels — NOT returns."""
     print("  Pulling raw VIX levels from Yahoo Finance...")
     raw = yf.download("^VIX", start=START_DATE, end=END_DATE,
                       auto_adjust=True, progress=False)
     vix = raw["Close"].squeeze()
-    vix = vix[vix.index.dayofweek < 5]  # weekdays only
+    vix = vix[vix.index.dayofweek < 5]
     vix = vix.ffill().dropna()
-    print(f"  VIX range: {vix.min():.1f} to {vix.max():.1f}")
-    print(f"  VIX mean:  {vix.mean():.1f}")
+    # Remove timezone info to match returns_matrix index
+    vix.index = vix.index.tz_localize(None)
+    print(f"  VIX range: {vix.min():.1f} to {vix.max():.1f}, mean: {vix.mean():.1f}")
     return vix
 
 
 def compute_regime_labels(vix):
-    print("\n  Applying VIX thresholds...")
     labels = pd.Series(0, index=vix.index, name="regime", dtype=int)
     labels[vix >= VIX_STRESS_THRESHOLD] = 1
     labels[vix >= VIX_CRISIS_THRESHOLD] = 2
-
-    total = len(labels)
-    names = {0: "calm", 1: "stress", 2: "crisis"}
-
-    print(f"\n  Thresholds: calm<{VIX_STRESS_THRESHOLD}, "
-          f"stress {VIX_STRESS_THRESHOLD}-{VIX_CRISIS_THRESHOLD}, "
-          f"crisis>{VIX_CRISIS_THRESHOLD}\n")
-    print("  Regime distribution:")
-    for label in [0, 1, 2]:
-        count = (labels == label).sum()
-        pct   = 100 * count / total
-        mean_vix = vix[labels == label].mean()
-        print(f"    {names[label]:8s} (label={label}): "
-              f"{count} days ({pct:.1f}%) — avg VIX={mean_vix:.1f}")
-
-    # Sanity check known crisis periods
-    print("\n  Crisis period checks:")
-    covid = labels["2020-02-01":"2020-05-01"]
-    covid_crisis = (covid == 2).sum()
-    print(f"    COVID crash (Feb-May 2020): {covid_crisis} crisis days "
-          f"{'[OK]' if covid_crisis > 20 else '[CHECK]'}")
-
-    gfc_available = "2008-09-01" in labels.index
-    if gfc_available:
-        gfc = labels["2008-09-01":"2009-03-01"]
-        gfc_crisis = (gfc == 2).sum()
-        print(f"    GFC (Sep 2008-Mar 2009):    {gfc_crisis} crisis days "
-              f"{'[OK]' if gfc_crisis > 20 else '[CHECK]'}")
-
     return labels
 
 
-def save_labels(labels):
-    out_path = os.path.join(PROCESSED_PATH, "regime_labels.csv")
-    labels.to_csv(out_path, header=True)
-    print(f"\n  [SAVED] {out_path}")
+def print_distribution(labels, vix, title):
+    total = len(labels)
+    names = {0: "calm", 1: "stress", 2: "crisis"}
+    print(f"\n  {title}:")
+    for label in [0, 1, 2]:
+        count    = (labels == label).sum()
+        pct      = 100 * count / total
+        mean_vix = vix.reindex(labels[labels == label].index).mean()
+        print(f"    {names[label]:8s} (label={label}): "
+              f"{count:4d} ({pct:.1f}%) — avg VIX={mean_vix:.1f}")
 
 
 def main():
     print("\n" + "=" * 55)
-    print("  REGIME LABEL FIX — VIX THRESHOLD METHOD")
+    print("  REGIME LABEL FIX v2 — DAILY + WEEKLY OUTPUT")
     print("  Ryan: Data & Econometrics Lead")
     print("=" * 55 + "\n")
 
     os.makedirs(PROCESSED_PATH, exist_ok=True)
+
     vix    = get_vix_levels()
     labels = compute_regime_labels(vix)
-    save_labels(labels)
+
+    # ── Daily labels (original) ───────────────────────────────────────────
+    daily_path = os.path.join(PROCESSED_PATH, "regime_labels.csv")
+    labels.to_csv(daily_path, header=True)
+    print_distribution(labels, vix, "Daily regime distribution")
+    print(f"\n  [SAVED] {daily_path}")
+
+    # ── Weekly labels — resample to weekly frequency ──────────────────────
+    # Use last trading day of each week (same as build_graphs.py snapshot logic)
+    # mode = most common regime in that week
+    weekly_labels = labels.resample("W-FRI").agg(
+        lambda x: x.mode()[0] if len(x) > 0 else 0
+    ).astype(int)
+    weekly_labels.name = "regime"
+
+    # Also produce forward-filled version for any missing weeks
+    weekly_labels = weekly_labels.ffill().dropna().astype(int)
+
+    weekly_path = os.path.join(PROCESSED_PATH, "regime_labels_weekly.csv")
+    weekly_labels.to_csv(weekly_path, header=True)
+    print_distribution(weekly_labels, vix.resample("W-FRI").last().ffill(), 
+                      "Weekly regime distribution")
+    print(f"\n  [SAVED] {weekly_path}")
+
+    # ── Sanity check ──────────────────────────────────────────────────────
+    print("\n  Crisis period checks:")
+    covid = labels["2020-02-01":"2020-05-01"]
+    print(f"    COVID (Feb-May 2020): {(covid==2).sum()} crisis days "
+          f"{'[OK]' if (covid==2).sum() > 20 else '[CHECK]'}")
 
     print("\n" + "=" * 55)
     print("  DONE. Now run:")
     print("    git add .")
-    print('    git commit -m "Ryan: fix regime labels - VIX threshold method"')
+    print('    git commit -m "Ryan: regime labels v2 - daily + weekly output"')
     print("    git push")
     print("=" * 55 + "\n")
+    print("  Tell Srujan to update build_graphs.py to read")
+    print("  regime_labels_weekly.csv instead of regime_labels.csv")
 
 
 if __name__ == "__main__":
