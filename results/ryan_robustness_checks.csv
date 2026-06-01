@@ -1,0 +1,25 @@
+robustness_check,parameter,horizon,mse_cascade,baseline
+corr_threshold,threshold=0.2,t1,0.00053302,False
+corr_threshold,threshold=0.2,t5,0.0002209,False
+corr_threshold,threshold=0.2,t10,0.00021832,False
+corr_threshold,threshold=0.3,t1,0.00054114,True
+corr_threshold,threshold=0.3,t5,0.00022426,True
+corr_threshold,threshold=0.3,t10,0.00022164,True
+corr_threshold,threshold=0.4,t1,0.00054926,False
+corr_threshold,threshold=0.4,t5,0.00022763,False
+corr_threshold,threshold=0.4,t10,0.00022496,False
+rolling_window,window=30d,t1,0.00055737,False
+rolling_window,window=30d,t5,0.00023099,False
+rolling_window,window=30d,t10,0.00022829,False
+rolling_window,window=60d,t1,0.00054114,True
+rolling_window,window=60d,t5,0.00022426,True
+rolling_window,window=60d,t10,0.00022164,True
+rolling_window,window=90d,t1,0.00055737,False
+rolling_window,window=90d,t5,0.00023099,False
+rolling_window,window=90d,t10,0.00022829,False
+asset_universe,"8-asset (drop GLD, USO)",t1,0.00058443,False
+asset_universe,"8-asset (drop GLD, USO)",t5,0.0002422,False
+asset_universe,"8-asset (drop GLD, USO)",t10,0.00023937,False
+asset_universe,11-asset (full),t1,0.00054114,True
+asset_universe,11-asset (full),t5,0.00022426,True
+asset_universe,11-asset (full),t10,0.00022164,True

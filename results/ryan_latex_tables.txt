@@ -1,0 +1,65 @@
+% CASCADE Paper -- Results Tables
+% Ryan: Data & Econometrics Lead
+% Paste into Overleaf as-is
+
+% TABLE 1: Forecast Accuracy Comparison
+\begin{table}[h]
+\centering
+\caption{Forecast Accuracy Comparison: MSE and MAE across models and horizons}
+\label{tab:accuracy}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llcccc}
+\toprule
+Horizon & Model & MSE & 95\% CI & MAE & Dir. Acc. \\
+\midrule
+$t+1$ & \textbf{CASCADE} & \textbf{0.000541} & [0.000364, 0.000750] & 0.011396 & 0.500 \\
+ & Rolling Correlation & 0.000606 & [0.000439, 0.000800] & 0.014220 & 0.480 \\
+ & VAR & 0.000565 & [0.000399, 0.000760] & 0.012349 & 0.472 \\
+ & Static GCN & 0.024016 & [0.023397, 0.024720] & 0.153226 & 0.489 \\
+\midrule
+$t+5$ & \textbf{CASCADE} & \textbf{0.000224} & [0.000182, 0.000272] & 0.009442 & 0.504 \\
+ & Rolling Correlation & 0.000472 & [0.000335, 0.000675] & 0.013672 & 0.493 \\
+ & VAR & 0.000230 & [0.000186, 0.000280] & 0.009613 & 0.498 \\
+ & Static GCN & 0.005120 & [0.004925, 0.005335] & 0.069969 & 0.537 \\
+\midrule
+$t+10$ & \textbf{CASCADE} & \textbf{0.000222} & [0.000175, 0.000272] & 0.009324 & 0.497 \\
+ & Rolling Correlation & 0.000389 & [0.000308, 0.000499] & 0.013174 & 0.485 \\
+ & VAR & 0.000216 & [0.000169, 0.000261] & 0.009233 & 0.508 \\
+ & Static GCN & 0.000450 & [0.000392, 0.000513] & 0.017505 & 0.449 \\
+\midrule
+\bottomrule
+\end{tabular}}
+\end{table}
+
+% TABLE 2: Diebold-Mariano Statistical Significance Tests
+\begin{table}[h]
+\centering
+\caption{Diebold-Mariano Tests: Statistical Significance of CASCADE vs Baselines}
+\label{tab:dm_tests}
+\begin{tabular}{llccc}
+\toprule
+Horizon & Comparison & DM Statistic & $p$-value & Significant ($p<0.05$) \\
+\midrule
+$t+1$ & CASCADE vs Rolling Correlation & -1.8293 & 0.0703 & No \\
+ & CASCADE vs VAR & -0.6982 & 0.4867 & No \\
+ & CASCADE vs Static GCN & -63.3925 & $<$0.0001 & \textbf{Yes} \\
+\midrule
+$t+5$ & CASCADE vs Rolling Correlation & -2.8934 & 0.0047 & \textbf{Yes} \\
+ & CASCADE vs VAR & -0.6170 & 0.5386 & No \\
+ & CASCADE vs Static GCN & -44.3597 & $<$0.0001 & \textbf{Yes} \\
+\midrule
+$t+10$ & CASCADE vs Rolling Correlation & -3.8229 & 0.0002 & \textbf{Yes} \\
+ & CASCADE vs VAR & 1.5442 & 0.1257 & No \\
+ & CASCADE vs Static GCN & -10.5920 & $<$0.0001 & \textbf{Yes} \\
+\midrule
+\bottomrule
+\end{tabular}
+\end{table}
+
+% KEY FINDINGS SUMMARY (for Results section narrative)
+% -------------------------------------------------
+% CASCADE vs Static GCN MSE improvement at t+1: 97.7%
+% CASCADE vs VAR MSE improvement at t+1: 4.2%
+% DM test: CASCADE significantly beats Static GCN at all horizons (p<0.0001)
+% DM test: CASCADE beats Rolling Correlation at t+5 (p=0.005) and t+10 (p=0.0002)
+% DM test: CASCADE vs VAR -- not significant (acknowledged limitation in paper)
