@@ -1,10 +1,10 @@
 # Data Integrity Audit — CASCADE
 
-Audit performed before an external presentation (Google employee review), started
-2026-08-16. This file is the single source of truth for which results files are
-trustworthy, which are not, and what changed in the code as a result. Two passes so
-far: an initial audit + real re-run, and a full second pass covering the rest of the
-codebase (this update).
+Data-integrity audit performed on this project, started 2026-08-16. This file is
+the single source of truth for which results files are trustworthy, which are not,
+and what changed in the code as a result. Two passes so far: an initial audit +
+real re-run, and a full second pass covering the rest of the codebase (this
+update).
 
 ## Status as of the second pass
 

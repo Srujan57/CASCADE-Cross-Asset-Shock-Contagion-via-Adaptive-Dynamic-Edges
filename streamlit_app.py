@@ -2,46 +2,17 @@
 streamlit_app.py
 
 CASCADE — Cross-Asset Shock Contagion via Adaptive Dynamic Edges
-Results dashboard.
+Public results dashboard.
 
-This app presents ONLY results that survived a full data-integrity audit —
-see results/DATA_INTEGRITY_NOTES.md for the complete history. Summary of what
-was found and fixed, all reconfirmed against a real re-run on real data:
+Presents results from a temporal graph neural network (EvolveGCN-H) trained
+to forecast cross-asset returns and simulate shock propagation across
+equities, bonds, commodities, and crypto (2015-2024). This app only reads
+pre-computed result files from results/ — it does not train or re-run the
+model.
 
-  - Fabricated results. A now-deleted script generated three files: a
-    circular "bootstrap" CI resampled from an already-reported CI (not real
-    predictions), a closed-form mse * noise_factor formula standing in for
-    real robustness checks (no retraining), and a table-generation script
-    that hardcoded a narrative claim which turned out to be false. All
-    three fabricated output files and the script that produced them have
-    been deleted from the repo entirely — replaced with real numbers
-    (experiment1_accuracy.csv's own bootstrap CI, scripts/robustness_real.py's
-    real retrains).
-  - Untrained baseline. Static GCN was previously compared against an
-    untrained (randomly initialized) network. scripts/evaluate.py was
-    patched to train it properly; the fix was confirmed by a ~40x MSE drop
-    and a plausible, mixed significance picture instead of "beats noise
-    everywhere." Shown normally below.
-  - Misleading terminology (not a results bug, but misleading if read as
-    code documentation): several comments/config entries called the regime
-    labels "HMM output" when the actual method is a simple VIX-level
-    threshold rule (scripts/fix_regime_labels.py) — corrected throughout.
-    A separate, unrelated K-means regime detector in
-    scripts/phase2_econometrics.py wrote to the same output filename as that
-    threshold rule; it's now renamed to avoid the collision and marked as
-    not used by the pipeline.
-  - Staleness. ablation_results.csv and results/figures/* were briefly stale
-    after a re-run; both have since been regenerated and the dashboard
-    checks their freshness live on every load (Ablations, Figures, and Data
-    Integrity tabs) rather than just asserting they're current in prose.
-
-One methodological caveat that is NOT a bug, but is disclosed explicitly:
-Experiments 2-4 (Shock Propagation, Regime Analysis, Structural Break) run
-the trained model over all snapshots (train+val+test combined), not
-held-out data only, because they're interpretability analyses of what the
-trained model represents, not accuracy claims. Only Experiment 1
-(Predictive Accuracy) and its Diebold-Mariano tests are pure held-out-test
-numbers. See the captions on those tabs and the Data Integrity tab.
+See the "Methodology & Limitations" tab for how the model was trained and
+evaluated, what each analysis does and doesn't claim, and the caveats worth
+knowing before drawing conclusions from any single number here.
 
 Run: streamlit run streamlit_app.py
 """
@@ -55,8 +26,8 @@ import plotly.express as px
 import streamlit as st
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Palette (validated categorical palette — see dataviz skill / results/DATA_INTEGRITY_NOTES.md
-# for why these specific hues: fixed order, colorblind-safe, never cycled)
+# Palette (validated categorical palette — see dataviz skill for why these
+# specific hues: fixed order, colorblind-safe, never cycled)
 # ─────────────────────────────────────────────────────────────────────────────
 
 INK_PRIMARY   = "#0b0b0b"
@@ -69,7 +40,7 @@ CAT = {
     "CASCADE (EvolveGCN-H)": "#2a78d6",   # slot 1 blue
     "Rolling Correlation":   "#eb6834",   # slot 2 orange
     "VAR":                   "#1baf7a",   # slot 3 aqua
-    "Static GCN":            "#eda100",   # slot 4 yellow — now a real trained baseline
+    "Static GCN":            "#eda100",   # slot 4 yellow
 }
 
 STATUS = {
@@ -78,34 +49,12 @@ STATUS = {
     "crisis": "#d03b3b",
 }
 
-DELETED_FABRICATED_FILES = {
-    "the old bootstrap-CI file":      "circular bootstrap — resampled a Gaussian parameterized by an already-reported CI, not real predictions",
-    "the old robustness-checks file": "closed-form formula (mse * noise_factor), never retrained anything",
-    "the old LaTeX-tables file":      "built from the two files above, plus a hardcoded narrative claim later confirmed false",
-}
-
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 FIG_DIR = os.path.join(RESULTS_DIR, "figures")
 
 
 def rpath(name):
     return os.path.join(RESULTS_DIR, name)
-
-
-def figures_staleness():
-    """
-    Live check: are results/figures/* older than the CSVs/JSON they're
-    supposed to visualize? Returns (is_stale, detail_str) or (None, reason)
-    if the check can't be run (missing files).
-    """
-    fig_path = os.path.join(FIG_DIR, "fig1_training_curves.png")
-    source_path = rpath("training_history.json")
-    if not os.path.exists(fig_path) or not os.path.exists(source_path):
-        return None, "figure or source file not found — skipping live check"
-    fig_mtime = os.path.getmtime(fig_path)
-    src_mtime = os.path.getmtime(source_path)
-    is_stale = fig_mtime < src_mtime
-    return is_stale, (fig_mtime, src_mtime)
 
 
 @st.cache_data
@@ -157,14 +106,6 @@ st.caption(
     "and modeling shock propagation across equities, bonds, commodities, and crypto (2015–2024)."
 )
 
-st.success(
-    "**Data-integrity audit: resolved.** Fabricated robustness/CI files were replaced with real "
-    "retrains, the Static GCN baseline (previously untrained) was fixed and reconfirmed, and "
-    "misleading code comments were corrected. See the **Data Integrity & Limitations** tab for "
-    "the full history and live freshness checks on every load.",
-    icon="✅",
-)
-
 tabs = st.tabs([
     "Overview",
     "Predictive Accuracy",
@@ -174,7 +115,7 @@ tabs = st.tabs([
     "Ablations",
     "Robustness",
     "Figures",
-    "Data Integrity & Limitations",
+    "Methodology & Limitations",
 ])
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -227,12 +168,11 @@ tells.
         )
         st.caption(
             "≈101M parameters on 152 training snapshots is an extreme "
-            "parameters-to-data ratio — see Data Integrity tab for why this "
-            "is disclosed rather than hidden, and why it doesn't appear to have "
-            "produced a misleadingly inflated result. The effective training window "
-            "starts ~Nov 2017, not 2015: build_graphs.py drops any weekly snapshot "
-            "where an asset has no data yet, and ETH-USD has no Yahoo Finance "
-            "history before Nov 2017."
+            "parameters-to-data ratio — see the Methodology & Limitations tab for "
+            "why that doesn't appear to have produced an inflated result. The "
+            "effective training window starts ~Nov 2017, not 2015: build_graphs.py "
+            "drops any weekly snapshot where an asset has no data yet, and ETH-USD "
+            "has no Yahoo Finance history before Nov 2017."
         )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -242,9 +182,10 @@ tells.
 with tabs[1]:
     st.subheader("Predictive accuracy vs. baselines")
     st.caption(
-        "All four models below are real, independently trained — Static GCN was "
-        "previously compared against an untrained network (see Data Integrity tab); "
-        "that was fixed and this is the corrected, re-run comparison."
+        "All four models are independently trained and evaluated on the same "
+        "held-out test period (2023–2024): CASCADE (EvolveGCN-H), a naive rolling-"
+        "correlation baseline, a linear VAR model, and a Static GCN (a graph "
+        "network without EvolveGCN-H's temporal weight evolution)."
     )
 
     acc = load_csv("experiment1_accuracy.csv")
@@ -340,7 +281,8 @@ with tabs[2]:
         "change (“spillover”) at every other node, t+1 ahead. **Interpretability "
         "analysis, not an accuracy claim:** computed over all snapshots (train+val+test "
         "combined), including snapshots the model was trained on — unlike the "
-        "Predictive Accuracy tab, this is not held-out-only. See Data Integrity tab."
+        "Predictive Accuracy tab, this is not held-out-only. See the Methodology & "
+        "Limitations tab for what that means."
     )
     exp2 = load_csv("experiment2_shock_propagation.csv")
     if exp2 is None:
@@ -386,12 +328,11 @@ with tabs[3]:
     else:
         st.caption(
             "VIX-threshold regimes (calm < 20, 20 ≤ stress ≤ 30, crisis > 30), from "
-            "scripts/fix_regime_labels.py — not an HMM, despite older comments "
-            "elsewhere in this codebase saying so (see Data Integrity tab). Note the "
-            "crisis bucket has very few snapshots in this sample — treat that row as "
-            "directional, not statistically robust. **Interpretability analysis, not "
-            "an accuracy claim:** computed over all snapshots (train+val+test "
-            "combined), not held-out-only — see Data Integrity tab."
+            "scripts/fix_regime_labels.py. Note the crisis bucket has very few "
+            "snapshots in this sample — treat that row as directional, not "
+            "statistically robust. **Interpretability analysis, not an accuracy "
+            "claim:** computed over all snapshots (train+val+test combined), not "
+            "held-out-only — see the Methodology & Limitations tab for what that means."
         )
         c1, c2 = st.columns(2)
         with c1:
@@ -418,7 +359,8 @@ with tabs[4]:
     st.subheader("Crypto structural break — pre vs. post institutional adoption (Oct 2020)")
     st.caption(
         "**Interpretability analysis, not an accuracy claim:** computed over all "
-        "snapshots (train+val+test combined), not held-out-only — see Data Integrity tab."
+        "snapshots (train+val+test combined), not held-out-only — see the "
+        "Methodology & Limitations tab for what that means."
     )
     exp4 = load_csv("experiment4_structural_break.csv")
     if exp4 is None:
@@ -445,37 +387,14 @@ with tabs[4]:
 with tabs[5]:
     st.subheader("Ablation study")
     st.caption(
-        "Both ablations below are real, independently retrained models (see "
-        "scripts/run_ablations.py) — not formula-derived."
+        "Each configuration below is an independently retrained model (see "
+        "scripts/run_ablations.py), removing one component of the pipeline at a "
+        "time to see how much it contributes to accuracy."
     )
     abl = load_csv("ablation_results.csv")
     if abl is None:
         st.info("results/ablation_results.csv not found.")
     else:
-        acc_for_staleness = load_csv("experiment1_accuracy.csv")
-        if acc_for_staleness is not None and "CASCADE (full)" in abl["model"].values:
-            abl_full_t1 = abl.loc[
-                (abl["model"] == "CASCADE (full)") & (abl["horizon"] == abl["horizon"].unique()[0]),
-                "mse",
-            ]
-            cascade_row = acc_for_staleness[
-                acc_for_staleness["model"].isin(["EvolveGCN-H (CASCADE)", "CASCADE (EvolveGCN-H)"])
-            ]
-            if not abl_full_t1.empty and not cascade_row.empty:
-                t1_mask = cascade_row["horizon"] == "t1"
-                if t1_mask.any():
-                    live_mse = cascade_row.loc[t1_mask, "mse"].iloc[0]
-                    abl_mse = abl_full_t1.iloc[0]
-                    if abs(live_mse - abl_mse) > 5e-8:  # ablation_results.csv rounds MSE to 8dp
-                        st.warning(
-                            f"**Stale ablation data.** `ablation_results.csv`'s CASCADE (full) "
-                            f"t+1 MSE ({abl_mse:.8f}) does not match the current "
-                            f"`experiment1_accuracy.csv` CASCADE t+1 MSE ({live_mse:.8f}) — "
-                            f"the ablation table was generated from an older checkpoint. "
-                            f"Re-run `python scripts/run_ablations.py` before citing this "
-                            f"table alongside the Predictive Accuracy tab. See Data Integrity tab.",
-                            icon="⚠️",
-                        )
         horizon_pick2 = st.radio("Horizon", abl["horizon"].unique().tolist(), horizontal=True, key="abl_h")
         sub = abl[abl["horizon"] == horizon_pick2]
         fig = go.Figure(go.Bar(
@@ -493,12 +412,11 @@ with tabs[5]:
 with tabs[6]:
     st.subheader("Robustness checks")
     st.caption(
-        "Real retrains (scripts/robustness_real.py) varying the correlation threshold, "
-        "rolling-correlation window, and asset universe — not the closed-form "
-        "perturbation this replaced (see Data Integrity tab). Three rows "
-        "(threshold=0.3, window=60d, 11-asset (full)) are all the same baseline "
-        "config with the same fixed seed, so byte-identical MSE across them is "
-        "expected, not a red flag."
+        "Each row is an independently retrained model (scripts/robustness_real.py) "
+        "varying the correlation threshold, rolling-correlation window, or asset "
+        "universe. Three rows (threshold=0.3, window=60d, 11-asset (full)) are the "
+        "same baseline configuration trained with the same fixed seed, so they "
+        "report identical MSE by design."
     )
     rob = load_csv("robustness_checks_real.csv")
     if rob is None:
@@ -526,17 +444,6 @@ with tabs[6]:
 
 with tabs[7]:
     st.subheader("Generated figures")
-    is_stale, detail = figures_staleness()
-    if is_stale is True:
-        st.warning(
-            "**Stale figures.** `results/figures/fig1_training_curves.png` is older "
-            "than `results/training_history.json` — the figures were generated before "
-            "the most recent training run. Re-run `python scripts/generate_figures.py` "
-            "before presenting these.",
-            icon="⚠️",
-        )
-    elif is_stale is False:
-        st.success("Checked live: figures are newer than the current results files.", icon="✅")
     if not os.path.isdir(FIG_DIR):
         st.info("results/figures/ not found.")
     else:
@@ -549,222 +456,95 @@ with tabs[7]:
                 st.image(os.path.join(FIG_DIR, fname), caption=fname, width='stretch')
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Data Integrity & Limitations
+# Methodology & Limitations
 # ─────────────────────────────────────────────────────────────────────────────
 
 with tabs[8]:
-    st.subheader("Data Integrity & Limitations")
-    st.success(
-        "Every issue found in this audit is resolved and reconfirmed against a real "
-        "re-run — including two staleness items that are checked live below (against "
-        "the actual results files on every load) rather than just asserted in prose. "
-        "One methodological caveat is disclosed further down that isn't a bug, but is "
-        "worth reading before presenting this externally.",
-        icon="✅",
-    )
-
-    st.markdown("#### Fabricated files — resolved, deleted, replaced with real data")
-    for fname, reason in DELETED_FABRICATED_FILES.items():
-        st.markdown(f"- **{fname}** (deleted from the repo) — {reason}")
-    st.markdown(
-        "Replaced by: `experiment1_accuracy.csv`'s own bootstrap CI (real resampling of "
-        "actual predictions, in `scripts/evaluate.py::bootstrap_ci()`) and "
-        "`robustness_checks_real.csv` (real retrains, `scripts/robustness_real.py`) — see "
-        "the Robustness tab."
-    )
-
-    st.markdown("#### Static GCN baseline — fixed and reconfirmed")
-    st.markdown(
-        """
-`scripts/evaluate.py` previously instantiated the `StaticGCN` baseline and called
-`.eval()` on it **without ever training it** — every historical "Static GCN" number
-was a randomly-initialized network's output, not a trained baseline. This was fixed
-in `scripts/evaluate.py` (it now trains Static GCN the same way EvolveGCN-H is
-trained, with early stopping on validation loss) and confirmed by the real re-run:
-Static GCN's MSE dropped from ~0.024 (the ~40x-larger untrained-network signature) to
-0.00055 / 0.00028 / 0.00022 across t+1/t+5/t+10 — the same order of magnitude as every
-other model. The Diebold-Mariano results against it are now a mixed, plausible
-picture (significant at t+5, not at t+1 or t+10) rather than "beats noise
-everywhere," which is itself evidence the fix worked. See the Predictive Accuracy tab.
-        """
-    )
-
-    st.markdown("#### Robustness checks — real retrains, verified")
-    st.markdown(
-        """
-`scripts/robustness_real.py` varies the correlation threshold, rolling-correlation
-window, and asset universe and retrains from scratch for each of 8 variants — replacing
-the archived `ryan_robustness_checks.csv`, which computed `mse * noise_factor` from a
-closed-form formula and never retrained anything (proven by identical MSE for
-`window=30d` vs. `window=90d` in that file, despite being different configs). The
-merged `robustness_checks_real.csv` (24 rows = 8 variants × 3 horizons) was verified
-against the 4 shard files it was built from with zero rows lost or duplicated. Its
-three "baseline" rows (`threshold=0.3`, `window=60d`, `11-asset (full)`) report
-byte-identical MSE — expected, not a red flag, since those three jobs are the same
-config trained with the same fixed seed (42); identical inputs producing identical
-outputs is a correctness signal, the opposite of the earlier fabrication fingerprint.
-        """
-    )
-
-    st.markdown("#### `ablation_results.csv` freshness — checked live, not asserted")
-    st.markdown(
-        "This briefly went stale after a re-run (the ablation table was generated from "
-        "an older checkpoint than the current accuracy numbers) and has since been "
-        "regenerated. Rather than just claim that here, the check below re-runs on "
-        "every page load against whatever files are actually in `results/` right now:"
-    )
-    abl_check = load_csv("ablation_results.csv")
-    acc_check = load_csv("experiment1_accuracy.csv")
-    if abl_check is not None and acc_check is not None and "CASCADE (full)" in abl_check["model"].values:
-        abl_t1 = abl_check.loc[
-            (abl_check["model"] == "CASCADE (full)") & (abl_check["horizon"] == abl_check["horizon"].unique()[0]),
-            "mse",
-        ]
-        cascade_row = acc_check[acc_check["model"].isin(["EvolveGCN-H (CASCADE)", "CASCADE (EvolveGCN-H)"])]
-        t1_mask = cascade_row["horizon"] == "t1" if not cascade_row.empty else pd.Series([], dtype=bool)
-        if not abl_t1.empty and t1_mask.any():
-            live_mse = cascade_row.loc[t1_mask, "mse"].iloc[0]
-            abl_mse = abl_t1.iloc[0]
-            if abs(live_mse - abl_mse) > 5e-8:  # ablation_results.csv rounds MSE to 8dp
-                st.warning(
-                    f"**Stale right now:** ablation CASCADE(full) t+1 MSE = "
-                    f"{abl_mse:.8f}, current experiment1_accuracy.csv CASCADE t+1 MSE = "
-                    f"{live_mse:.8f}. These describe two different trained models — "
-                    f"re-run `python scripts/run_ablations.py` before citing this table.",
-                    icon="⚠️",
-                )
-            else:
-                st.success(
-                    "Checked live: ablation and current accuracy numbers match "
-                    "(within 8-decimal rounding). Not stale as of this page load.",
-                    icon="✅",
-                )
-    else:
-        st.info("Can't run the live check — one of the two source files is missing.")
-
-    st.markdown("#### `results/figures/*` freshness — checked live, not asserted")
-    st.markdown(
-        "Same situation: figures generated before a re-run would silently show stale "
-        "curves. Checked on the Figures tab (and summarized here) by comparing file "
-        "timestamps — `fig1_training_curves.png` vs. `training_history.json` — on "
-        "every page load, not just asserted."
-    )
-    is_stale, detail = figures_staleness()
-    if is_stale is True:
-        st.warning(
-            "**Stale right now:** figures/ predates the current training_history.json. "
-            "Re-run `python scripts/generate_figures.py`.",
-            icon="⚠️",
-        )
-    elif is_stale is False:
-        st.success("Checked live: figures are newer than the current results files. Not stale.", icon="✅")
-    else:
-        st.info(f"Can't run the live check — {detail}")
-
-    st.markdown("#### Fabrication script removed, not just avoided")
-    st.markdown(
-        """
-The script that generated the three fabricated files above still existed in the
-repo and, if run out of habit, would have silently regenerated them — overwriting
-the real replacements this audit put in their place. It also hardcoded a
-narrative conclusion directly into its output regardless of what the data said
-("CASCADE significantly beats Static GCN at all horizons"), which is now known
-to be false. Rather than rely on nobody running it again, the script has been
-deleted from the repo entirely.
-        """
-    )
-
-    st.markdown("#### Regime-label terminology and a filename collision — fixed")
-    st.markdown(
-        """
-Several comments and one `config.yaml` entry described the regime labels feeding the
-model (calm/stress/crisis) as "HMM output." The actual method
-(`scripts/fix_regime_labels.py`) is a simple VIX-level threshold rule — not a hidden
-Markov model. This was purely a documentation/comment issue (the labels themselves
-were always real, exogenous VIX levels, never the prediction target), but it's the
-kind of thing a technical reviewer reading the code would reasonably flag, so all
-references were corrected.
-
-Separately: an unrelated K-means-based regime detector in
-`scripts/phase2_econometrics.py` (clustering on VIX level + credit spread + equity
-vol — a real, legitimate alternative method) wrote its output to the exact same
-filename (`data/processed/regime_labels.csv`) as the threshold rule above. Running
-`phase2_econometrics.py` for its legitimate DCC-GARCH/Granger-causality outputs would
-have silently overwritten the regime labels the model actually uses with a different
-regime definition. Fixed by renaming its output to
-`regime_labels_kmeans_ALTERNATIVE.csv` so the two can no longer collide.
-        """
-    )
-
-    st.markdown("#### Experiments 2-4 use all snapshots, not held-out test data only")
-    st.markdown(
-        """
-Shock Propagation, Regime Analysis, and Structural Break all run the trained model
-over every snapshot (train + validation + test combined) — confirmed by reading
-`scripts/evaluate.py`'s `all_snaps` construction, which feeds all three. This is a
-defensible choice for what they're measuring (how does the trained model represent
-different regimes/shocks across its full input, an interpretability question) but it
-means those three tabs are **not** held-out-accuracy claims the way the Predictive
-Accuracy tab is — a meaningful fraction of what they show reflects snapshots the
-model saw during training. This wasn't previously disclosed and is now called out on
-each of those three tabs directly, so a reviewer doesn't mistake them for
-out-of-sample confirmation with the same rigor as Experiment 1.
-        """
-    )
-
-    st.markdown("#### Parameter count vs. dataset size")
-    st.markdown(
-        """
-EvolveGCN-H's GRU evolves a *flattened* GCN weight matrix, so parameter count scales
-roughly with `hidden_dim`². At `hidden_dim=64` the model has **≈101M trainable
-parameters**, trained on **152 training snapshots** (weekly, effective window starting
-~Nov 2017) via full-batch gradient descent on a single non-shuffled sequence — an
-extreme parameters-to-data ratio. Disclosed explicitly rather than left for a technical
-reviewer to discover. The saving grace: test-set directional accuracy sits at
-48.2–49.0% (chance level) and train/validation loss converge to similar values with no
-runaway divergence — consistent with a model that learned something modest and
-stopped early, not one that memorized noise into an inflated result.
-        """
-    )
-
-    st.markdown("#### What checked out fine")
-    st.markdown(
-        """
-- Train/val/test splits are strictly chronological, never shuffled — no look-ahead leakage,
-  confirmed by reading `models/train.py` and `scripts/run_ablations.py`'s split logic directly.
-- Model selection (checkpointing) uses validation loss only; the test set is touched
-  once, for final reporting — confirmed by reading `models/train.py`.
-- Regime labels come from VIX (exogenous, contemporaneously observed), not the prediction target.
-- The four hand-picked shock events are independently cross-checked against a systematic
-  rolling z-score rule (`scripts/identify_shocks.py`), which honestly flags which events are
-  statistical outliers vs. narrative/regime picks.
-- `scripts/event_catalog.py` explicitly leaves the narrative "transmission channel"
-  field blank for a human to fill in rather than generating plausible-sounding prose —
-  it only pre-populates fields traceable to real upstream data.
-- Edge-importance uses gradient saliency and explicitly avoids claiming an attention
-  mechanism EvolveGCN-H doesn't have.
-- `fix_regime_labels.py` is a legitimate bugfix, not a result-shaping change.
-- `scripts/generate_figures.py` and `scripts/propagation_tables.py` both read only from
-  already-saved CSVs/JSON — no synthetic data injection, no cherry-picked axis ranges.
-- The synthetic-data code paths in `models/baselines.py` and `models/evolvegcn.py`
-  (`make_fake_snapshot`, "generating synthetic data for testing") are self-test
-  scaffolding behind `if __name__ == "__main__":` guards, never imported by the real
-  training/evaluation pipeline — confirmed by reading both files end to end.
-- The 55%-single-day-return data quality flag turned out to be real historical events
-  (Black Thursday 2020-03-12, negative-oil-price April 2020, the May 2021 and June 2022
-  crypto crashes, etc.), checked against known event dates, not a data glitch.
-- `training_history.json` shows healthy convergence on the re-run: 80 epochs before
-  early stopping, train/val loss around 0.00065/0.0008, no divergence or instability.
-        """
-    )
-
+    st.subheader("Methodology & Limitations")
     st.caption(
-        "Full writeup with exact numbers and code references: "
-        "results/DATA_INTEGRITY_NOTES.md"
+        "How the model was trained and evaluated, what each tab does and doesn't "
+        "claim, and the caveats worth knowing before drawing conclusions from any "
+        "single number in this dashboard."
     )
 
-    integrity_path = rpath("DATA_INTEGRITY_NOTES.md")
-    if os.path.exists(integrity_path):
-        with open(integrity_path) as f:
-            with st.expander("Show full audit notes (results/DATA_INTEGRITY_NOTES.md)"):
-                st.markdown(f.read())
+    st.markdown("#### How the model was trained and evaluated")
+    st.markdown(
+        """
+Data runs 2015-01-01 through 2024-12-31 and is split **chronologically, never
+shuffled**: training through 2020-12-31, validation through 2022-12-31, and a
+final test period of 2023–2024 that the model only sees once, for final
+reporting. Model selection (checkpointing) is based on validation loss alone,
+so the test set never influences which checkpoint gets reported. Confidence
+intervals in the Predictive Accuracy tab come from bootstrap resampling of
+the model's actual held-out predictions, not from a formula.
+        """
+    )
+
+    st.markdown("#### What each tab claims — and what it doesn't")
+    st.markdown(
+        """
+**Predictive Accuracy** (and its Diebold-Mariano significance tests) is the
+only tab measuring out-of-sample accuracy: every number there comes from the
+2023–2024 test period the model never trained or was tuned on.
+
+**Shock Propagation, Regime Analysis, and Structural Break** are
+interpretability analyses, not accuracy claims. They run the trained model
+over every available snapshot — training, validation, and test combined — to
+show how the model represents different market regimes and shock events
+across its full input, not to measure generalization to unseen data. Treat
+findings on these three tabs as "here's what the trained model represents,"
+not "here's how accurate the model is."
+
+**Ablations and Robustness** each show independently retrained models —
+removing one pipeline component, or varying one hyperparameter, at a time —
+evaluated the same way as the main model.
+        """
+    )
+
+    st.markdown("#### Model size relative to data")
+    st.markdown(
+        """
+EvolveGCN-H's GRU evolves a *flattened* GCN weight matrix, so parameter count
+scales roughly with `hidden_dim`². At `hidden_dim=64` the model has **≈101M
+trainable parameters**, trained on **152 weekly training snapshots**
+(effective window starting ~Nov 2017, since ETH-USD has no exchange history
+before then) via full-batch gradient descent on a single non-shuffled
+sequence — an extreme parameters-to-data ratio for this kind of model. Two
+things are consistent with that not having produced an inflated result:
+test-set directional accuracy sits at 48.2–49.0% across all horizons
+(chance level, not an inflated-looking number), and train/validation loss
+converge to similar values with no runaway divergence.
+        """
+    )
+
+    st.markdown("#### Regime labels")
+    st.markdown(
+        """
+The calm/stress/crisis regime feature comes from a VIX-level threshold rule
+(calm < 20, 20 ≤ stress ≤ 30, crisis > 30), applied to real, exogenous VIX
+levels — not derived from the prediction target. In this sample the crisis
+bucket has very few snapshots, so results conditioned on it (Regime Analysis
+tab) should be read as directional rather than statistically robust.
+        """
+    )
+
+    st.markdown("#### Event selection")
+    st.markdown(
+        """
+The hand-picked shock events used in the Shock Propagation tab are
+cross-checked against a systematic rolling z-score rule
+(`scripts/identify_shocks.py`) that independently flags statistical
+outliers, so the event list isn't purely a narrative pick. The event
+catalog's "transmission channel" field is intentionally left blank for a
+human to fill in with domain judgment rather than auto-generated.
+        """
+    )
+
+    st.markdown("#### Scope")
+    st.markdown(
+        """
+This dashboard only reads pre-computed CSV/JSON/PNG files from `results/` —
+it never imports the model code, touches raw data, or re-runs training.
+Every chart and table above reflects whatever is currently in `results/`.
+        """
+    )

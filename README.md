@@ -26,15 +26,15 @@ trained Static GCN baseline at t+5 only. This is a defensible,
 market-efficiency-consistent result, not a "beats everything" story — see the
 dashboard's Overview and Predictive Accuracy tabs for the full picture.
 
-## Before you cite or present anything from this repo
+## Data integrity
 
-Read `results/DATA_INTEGRITY_NOTES.md` first. This project went through a
-pre-presentation data-integrity audit that found and fixed real issues — a
-fabricated bootstrap/robustness-check script and an untrained baseline model, among
-smaller things — and that file is the single source of truth for what's trustworthy,
-what was fixed, and what's disclosed as a known limitation rather than hidden. The
-dashboard (`streamlit_app.py`) surfaces the same information live, including checks
-that re-verify certain files haven't gone stale every time it loads.
+`results/DATA_INTEGRITY_NOTES.md` documents a data-integrity audit performed on
+this project — what was found, what was fixed, and what's disclosed as a known
+limitation rather than hidden. It's an internal record of that process. The
+dashboard's **Methodology & Limitations** tab covers the current, forward-looking
+version of the same caveats — how the model was trained and evaluated, what each
+tab does and doesn't claim, and what to know before drawing conclusions from any
+single number in it.
 
 ## Running the pipeline
 

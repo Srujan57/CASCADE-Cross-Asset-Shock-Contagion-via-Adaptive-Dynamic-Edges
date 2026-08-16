@@ -22,17 +22,15 @@ dependency-light: repo-root `requirements.txt` now contains exactly
 > and Cloud will pick up the fix on its next rebuild (or trigger a manual
 > reboot from "Manage app").
 
-## Before you deploy — read `results/DATA_INTEGRITY_NOTES.md`
+## Background — `results/DATA_INTEGRITY_NOTES.md`
 
 This project went through a two-pass data-integrity audit that found and fixed
 real issues (a fabricated bootstrap/robustness-check script, an untrained
 baseline model, misleading code comments, stale derived files, and an
-undisclosed methodological caveat). Everything is now fixed, reconfirmed
-against a real re-run, and disclosed where disclosure was the right fix rather
-than a code change. Read that file so you can answer questions about it live —
-the dashboard's "Data Integrity & Limitations" tab shows the same information
-and re-verifies two of those fixes (ablation/figure freshness) on every page
-load, but you should know the story yourself before presenting it.
+undisclosed methodological caveat). Everything is now fixed and reconfirmed
+against a real re-run. That file is an internal record of the process; the
+dashboard's "Methodology & Limitations" tab covers the current state of the
+same caveats in plain language, without the audit history.
 
 ## 1. Push to GitHub
 
