@@ -379,7 +379,7 @@ def run_ablations():
 
     summary_df.to_csv(ABLATION_RESULTS_PATH, index=False)
     print(f"\nSaved: {ABLATION_RESULTS_PATH}")
-    print("\nDone. Add ablation_results.csv to the paper appendix.")
+    print("\nDone.")
 
 
 if __name__ == "__main__":

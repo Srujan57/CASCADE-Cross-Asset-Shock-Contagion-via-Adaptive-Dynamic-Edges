@@ -1,34 +1,31 @@
 """
 scripts/robustness_real.py
 
-Replaces the FABRICATED robustness checks in scripts/phase4_results.py.
+Replaces the FABRICATED robustness checks previously produced by
+scripts/phase4_results.py (now deprecated — see that file's docstring).
 
-scripts/phase4_results.py's compute_robustness_checks() does not vary any
-actual pipeline parameter or retrain anything. It takes the baseline MSE
-and multiplies it by hand-picked formulas:
+phase4_results.py's compute_robustness_checks() did not vary any actual
+pipeline parameter or retrain anything. It took the baseline MSE and
+multiplied it by hand-picked formulas:
 
     noise_factor = 1.0 + (thresh - 0.3) * 0.15        # correlation threshold
     noise_factor = 1.0 + abs(window - 60) * 0.001      # rolling window
     mse_adj = row["mse"] * 1.08                        # 8-asset universe
 
-results/ryan_robustness_checks.csv is therefore made-up numbers dressed up
-as a sensitivity analysis. Submitting that table to a journal as evidence
-of robustness would be a real problem in peer review (and is straightforwardly
-misrepresentation) if it isn't replaced before writing the paper. Likewise,
-compute_bootstrap_ci() in that file re-derives "bootstrap" CIs by sampling
-a normal distribution parameterized by the *already-reported* CI bounds,
-rather than resampling actual predictions — it's circular, not a second
-independent bootstrap. The real bootstrap (resampling actual predictions)
-already happens correctly in scripts/evaluate.py's bootstrap_ci(), so
-results/experiment1_accuracy.csv's CI columns are trustworthy; treat
-results/ryan_bootstrap_ci.csv as redundant and skip it.
+Its output was therefore made-up numbers dressed up as a sensitivity
+analysis — a real problem if presented as evidence of robustness.
+Likewise, its compute_bootstrap_ci() re-derived "bootstrap" CIs by
+sampling a normal distribution parameterized by the *already-reported* CI
+bounds, rather than resampling actual predictions — it's circular, not a
+second independent bootstrap. The real bootstrap (resampling actual
+predictions) already happens correctly in scripts/evaluate.py's
+bootstrap_ci(), so results/experiment1_accuracy.csv's CI columns are
+trustworthy on their own.
 
-This script does the real thing for the three robustness checks the plan
-specifies:
+This script does the real thing for three robustness checks:
     (a) Correlation threshold: 0.2, 0.3 (baseline), 0.4
     (b) Rolling window: 30, 60 (baseline), 90 days
-    (c) Reduced 8-asset universe: drop GLD, USO (matches the asset choice
-        already documented in phase4_results.py's comments)
+    (c) Reduced 8-asset universe: drop GLD, USO
 
 For each variant it rebuilds graph snapshots from the real returns data,
 trains a fresh EvolveGCN-H from scratch, evaluates on the same held-out
@@ -270,8 +267,8 @@ def main():
     print("=" * 60)
     if args.quick:
         print("  --quick mode: 15 epochs per run, for pipeline smoke-testing")
-        print("  ONLY. Re-run without --quick before using these numbers")
-        print("  in the paper.")
+        print("  ONLY. Re-run without --quick before citing these numbers")
+        print("  anywhere.")
     if shard_n > 1:
         print(f"  Shard {shard_k}/{shard_n}: running {len(my_jobs)} of "
               f"{len(all_jobs)} total jobs in this process.")
@@ -307,12 +304,12 @@ def main():
               f"glob.glob('results/robustness_checks_real{suffix}_shard*of{shard_n}.csv')])"
               f".to_csv('results/robustness_checks_real{suffix}.csv', index=False)\"")
     if args.quick:
-        print("  This is a smoke test, not paper-ready. Re-run without")
-        print("  --quick and use robustness_checks_real.csv (no suffix)")
-        print("  in place of results/ryan_robustness_checks.csv.")
+        print("  This is a smoke test, not a citable result. Re-run without")
+        print("  --quick and use robustness_checks_real.csv (no suffix) as")
+        print("  the real robustness table.")
     else:
-        print("  Use this file in place of results/ryan_robustness_checks.csv")
-        print("  when building the paper's robustness table.")
+        print("  This is the real robustness table — supersedes the old")
+        print("  fabricated-formula version this script replaced.")
     print("=" * 60)
 
 

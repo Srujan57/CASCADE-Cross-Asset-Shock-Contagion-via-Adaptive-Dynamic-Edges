@@ -32,3 +32,5 @@ wandb/
 Thumbs.db
 .vscode/
 .idea/
+_to_delete/
+scripts/_to_delete/

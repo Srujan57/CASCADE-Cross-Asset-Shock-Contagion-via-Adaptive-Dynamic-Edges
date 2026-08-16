@@ -3,8 +3,24 @@
 `streamlit_app.py` is a **read-only results dashboard** — it never imports
 `torch`, never touches `data/`, and never re-runs the model. It only reads
 CSV/JSON/PNG files already sitting in `results/`. That keeps the deploy
-dependency-light (see `requirements_streamlit.txt`: streamlit, pandas, plotly —
-nothing else).
+dependency-light: repo-root `requirements.txt` now contains exactly
+`streamlit`, `pandas`, `plotly` — nothing else.
+
+> **Correction, if you deployed from an earlier version of this guide:**
+> this doc previously said to set a custom requirements filename in
+> Streamlit Cloud's "Advanced settings." That option doesn't exist. Cloud
+> auto-detects a dependency file by exact name only — checking
+> `uv.lock` → `Pipfile` → `environment.yml` → `requirements.txt` →
+> `pyproject.toml`, first match wins — and this repo had both
+> `requirements.txt` and `environment.yml` at root, so Cloud silently used
+> `environment.yml` (the full research conda env, which never included
+> `plotly`), producing `ModuleNotFoundError: No module named 'plotly'` in
+> production. Fixed: `environment.yml` is renamed to
+> `environment.research.yml` so it no longer collides, and repo-root
+> `requirements.txt` is now the dashboard-only file described below. If
+> your deployed app is still showing that error, push these two renames
+> and Cloud will pick up the fix on its next rebuild (or trigger a manual
+> reboot from "Manage app").
 
 ## Before you deploy — read `results/DATA_INTEGRITY_NOTES.md`
 
@@ -25,7 +41,7 @@ small — figures are the biggest at ~100-300KB each):
 
 ```
 streamlit_app.py
-requirements_streamlit.txt
+requirements.txt
 .streamlit/config.toml
 results/*.csv
 results/*.json
@@ -33,42 +49,38 @@ results/*.md
 results/figures/*.png
 ```
 
+**Critical: `requirements.txt` must be the only dependency file Streamlit
+Cloud can find at repo root.** If you reintroduce a root-level
+`environment.yml`, `Pipfile`, or `uv.lock`, it will silently take priority
+over `requirements.txt` again (see the correction note above) — keep the
+full research environment in `environment.research.yml` /
+`requirements-core.txt` instead, which Cloud's auto-discovery won't match.
+
 You do **not** need `data/`, `results/checkpoints/`, or `.pkl` files — the
 dashboard doesn't read them, and `.gitignore` already excludes them along
 with `results/_to_delete/` (pure cleanup scratch — safe to delete locally
 too) and the usual `.venv/`, `wandb/`, `__pycache__/`, `.env`.
 
-Two folders are a judgment call, not excluded by `.gitignore`:
-
-- `results/archive_fabricated_DO_NOT_USE/` — the old fabricated CSVs, kept
-  as a paper trail. The dashboard never reads it. Commit it if you want the
-  history to be part of the public repo, or leave it out (delete locally
-  first) if you'd rather it not ship at all — either is honest, since the
-  live app doesn't depend on it either way.
-- `scripts/archive_deprecated_DO_NOT_USE/phase4_results.py` — same
-  situation, for the deprecated fabrication script. It's guarded against
-  actually running, so shipping it is safe, but it's also fine to leave
-  out of the deploy repo.
+The old fabricated result files and the script that generated them have
+been deleted from the repo entirely (see `results/DATA_INTEGRITY_NOTES.md`)
+— nothing to decide there, there's simply nothing left to commit or exclude.
 
 ## 2. Deploy on Streamlit Community Cloud
 
 1. Go to https://share.streamlit.io and sign in with GitHub.
 2. "New app" → pick this repo/branch.
 3. Main file path: `streamlit_app.py`
-4. Under "Advanced settings" → set the requirements file to
-   `requirements_streamlit.txt` (Streamlit Cloud looks for `requirements.txt`
-   by default — if it insists on that name, either rename
-   `requirements_streamlit.txt` to `requirements.txt` for the deploy, or add
-   a root `requirements.txt` that just does `-r requirements_streamlit.txt`;
-   don't point it at the full research `requirements.txt`/`environment.yml`,
-   which pulls in `torch`/`torch-geometric` and will slow the build down for
-   no benefit to this app).
-5. Deploy. First build takes a minute or two.
+4. Advanced settings only has Python version and secrets — nothing to
+   change there for this app. Dependencies are picked up automatically from
+   repo-root `requirements.txt` (see the correction note above for why this
+   matters).
+5. Deploy. First build takes well under a minute — `streamlit`, `pandas`,
+   and `plotly` are the only packages installed, no `torch`/`torch-geometric`.
 
 ## 3. Local run / sanity check before sharing the link
 
 ```bash
-pip install -r requirements_streamlit.txt
+pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 

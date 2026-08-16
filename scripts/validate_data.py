@@ -1,6 +1,5 @@
 """
-Cross-Asset Contagion Project — Phase 3 Data Validation
-Ryan: Data & Econometrics Lead
+scripts/validate_data.py
 
 Checks all data files before they enter the GNN:
   - No NaN values
@@ -263,8 +262,7 @@ def validate_alignment(returns_df):
 
 def main():
     print("\n" + "=" * 55)
-    print("  CROSS-ASSET CONTAGION — PHASE 3 DATA VALIDATION")
-    print("  Ryan: Data & Econometrics Lead")
+    print("  CROSS-ASSET CONTAGION — DATA VALIDATION")
     print("=" * 55 + "\n")
 
     returns = validate_returns()

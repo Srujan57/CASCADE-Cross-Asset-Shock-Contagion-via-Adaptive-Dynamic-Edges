@@ -8,17 +8,15 @@ This app presents ONLY results that survived a full data-integrity audit —
 see results/DATA_INTEGRITY_NOTES.md for the complete history. Summary of what
 was found and fixed, all reconfirmed against a real re-run on real data:
 
-  - Fabricated results. scripts/phase4_results.py generated
-    ryan_bootstrap_ci.csv (a circular "bootstrap" resampled from an
-    already-reported CI, not real predictions), ryan_robustness_checks.csv
-    (a closed-form mse * noise_factor formula, no retraining), and
-    ryan_latex_tables.txt (built from both, plus a hardcoded narrative claim
-    that turned out to be false). All three were archived to
-    results/archive_fabricated_DO_NOT_USE/ — this app never reads that
-    folder — and replaced with real numbers (experiment1_accuracy.csv's own
-    bootstrap CI, scripts/robustness_real.py's real retrains). The script
-    that produced them now refuses to run (see its docstring) so it can't
-    silently regenerate fabricated files again.
+  - Fabricated results. A now-deleted script generated three files: a
+    circular "bootstrap" CI resampled from an already-reported CI (not real
+    predictions), a closed-form mse * noise_factor formula standing in for
+    real robustness checks (no retraining), and a table-generation script
+    that hardcoded a narrative claim which turned out to be false. All
+    three fabricated output files and the script that produced them have
+    been deleted from the repo entirely — replaced with real numbers
+    (experiment1_accuracy.csv's own bootstrap CI, scripts/robustness_real.py's
+    real retrains).
   - Untrained baseline. Static GCN was previously compared against an
     untrained (randomly initialized) network. scripts/evaluate.py was
     patched to train it properly; the fix was confirmed by a ~40x MSE drop
@@ -80,12 +78,11 @@ STATUS = {
     "crisis": "#d03b3b",
 }
 
-ARCHIVED_FABRICATED_FILES = {
-    "ryan_bootstrap_ci.csv":      "circular bootstrap — resamples a Gaussian parameterized by an already-reported CI, not real predictions",
-    "ryan_robustness_checks.csv": "closed-form formula (mse * noise_factor), never retrains anything",
-    "ryan_latex_tables.txt":      "built from the two files above",
+DELETED_FABRICATED_FILES = {
+    "the old bootstrap-CI file":      "circular bootstrap — resampled a Gaussian parameterized by an already-reported CI, not real predictions",
+    "the old robustness-checks file": "closed-form formula (mse * noise_factor), never retrained anything",
+    "the old LaTeX-tables file":      "built from the two files above, plus a hardcoded narrative claim later confirmed false",
 }
-ARCHIVE_DIR = "archive_fabricated_DO_NOT_USE"
 
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 FIG_DIR = os.path.join(RESULTS_DIR, "figures")
@@ -566,14 +563,9 @@ with tabs[8]:
         icon="✅",
     )
 
-    st.markdown("#### Archived fabricated files — resolved, replaced with real data")
-    for fname, reason in ARCHIVED_FABRICATED_FILES.items():
-        archived_path = os.path.join(ARCHIVE_DIR, fname)
-        exists = os.path.exists(rpath(archived_path))
-        st.markdown(
-            f"- `{fname}` {'(moved to `results/' + ARCHIVE_DIR + '/`, never loaded by this app)' if exists else '(not found)'} "
-            f"— {reason}"
-        )
+    st.markdown("#### Fabricated files — resolved, deleted, replaced with real data")
+    for fname, reason in DELETED_FABRICATED_FILES.items():
+        st.markdown(f"- **{fname}** (deleted from the repo) — {reason}")
     st.markdown(
         "Replaced by: `experiment1_accuracy.csv`'s own bootstrap CI (real resampling of "
         "actual predictions, in `scripts/evaluate.py::bootstrap_ci()`) and "
@@ -669,19 +661,16 @@ outputs is a correctness signal, the opposite of the earlier fabrication fingerp
     else:
         st.info(f"Can't run the live check — {detail}")
 
-    st.markdown("#### Fabrication script neutralized, not just avoided")
+    st.markdown("#### Fabrication script removed, not just avoided")
     st.markdown(
         """
-`scripts/phase4_results.py` (the source of the three fabricated files above) still
-existed in the repo and, if run out of habit, would have silently regenerated
-`results/ryan_*.csv` — overwriting the real replacements this audit put in their
-place. It also hardcoded a narrative conclusion directly into its LaTeX output
-regardless of what the data said ("CASCADE significantly beats Static GCN at all
-horizons (p<0.0001)"), which is now known to be false. Rather than rely on nobody
-running it again, the script itself now refuses to run — `python
-scripts/phase4_results.py` exits immediately with an explanation — and it was moved
-to `scripts/archive_deprecated_DO_NOT_USE/` alongside an expanded docstring
-documenting exactly what was wrong with it, for the historical record.
+The script that generated the three fabricated files above still existed in the
+repo and, if run out of habit, would have silently regenerated them — overwriting
+the real replacements this audit put in their place. It also hardcoded a
+narrative conclusion directly into its output regardless of what the data said
+("CASCADE significantly beats Static GCN at all horizons"), which is now known
+to be false. Rather than rely on nobody running it again, the script has been
+deleted from the repo entirely.
         """
     )
 

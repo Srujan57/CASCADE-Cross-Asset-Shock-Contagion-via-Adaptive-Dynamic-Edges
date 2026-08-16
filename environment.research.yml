@@ -1,0 +1,44 @@
+# Renamed from the repo-root environment.yml. Streamlit Community Cloud
+# auto-detects a dependency file by exact name, checking
+# uv.lock > Pipfile > environment.yml > requirements.txt > pyproject.toml --
+# having both this file (as "environment.yml") AND requirements.txt at repo
+# root meant Cloud silently installed from this one, which never included
+# plotly or streamlit, causing a ModuleNotFoundError in production. Renamed
+# so it no longer collides with Cloud's auto-discovery; requirements.txt at
+# repo root is now the dashboard's minimal dependency file and the only one
+# Cloud will find. Use this file for local pipeline development instead:
+#   conda env create -f environment.research.yml -n contagion-gnn
+name: contagion-gnn
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+
+  # ── Core scientific stack ──────────────────────────────────────────────
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+
+  # ── PyTorch (CPU build — no GPU required) ──────────────────────────────
+  - pytorch
+  - cpuonly
+
+  # ── Notebooks ─────────────────────────────────────────────────────────
+  - jupyterlab
+  - ipykernel
+
+  # ── Visualization ─────────────────────────────────────────────────────
+  - matplotlib
+  - seaborn
+
+  # ── Config parsing ────────────────────────────────────────────────────
+  - pyyaml
+
+  # ── pip-only packages ─────────────────────────────────────────────────
+  - pip
+  - pip:
+    - torch-geometric

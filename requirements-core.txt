@@ -1,11 +1,16 @@
 # The ACTUAL runtime dependencies of scripts/ and models/, derived by
 # grepping every import/from statement in this repo (2026-08-16) rather
-# than trusting requirements.txt, which is a raw `pip freeze` of a broader
-# dev environment and pulls in ~150 packages the pipeline never imports
-# (JupyterLab, GitPython, sentry-sdk, prometheus_client, fredapi,
-# pycoingecko, ...). Prefer this file for a clean install; use
-# requirements.txt only if you specifically want the notebook/dev tooling
-# that came with the original environment too.
+# than trusting requirements-full-freeze.txt, which is a raw `pip freeze`
+# of a broader dev environment and pulls in ~150 packages the pipeline
+# never imports (JupyterLab, GitPython, sentry-sdk, prometheus_client,
+# fredapi, pycoingecko, ...). Prefer this file for a clean pipeline
+# install; use requirements-full-freeze.txt only if you specifically want
+# the notebook/dev tooling that came with the original environment too.
+#
+# NOTE: repo-root requirements.txt is a *different* file — it's the
+# dashboard's minimal dependency list (streamlit, pandas, plotly), the one
+# Streamlit Community Cloud actually deploys from. Don't confuse the two;
+# this file is for running the model pipeline locally, not the dashboard.
 #
 # torch's CPU-only wheels (+cpu suffix) aren't on PyPI's default index —
 # this line points pip at PyTorch's own index so `torch` resolves.

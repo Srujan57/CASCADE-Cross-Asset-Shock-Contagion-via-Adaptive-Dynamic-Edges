@@ -1,8 +1,20 @@
-# Minimal dependencies for streamlit_app.py (the results dashboard only).
-# This is intentionally separate from requirements.txt / environment.yml,
-# which pin the full research pipeline (torch, torch-geometric, arch,
-# statsmodels, yfinance, jupyter, ...) needed to regenerate results/, not to
-# view them. Streamlit Community Cloud should install from this file.
+# DEPRECATED / superseded by repo-root requirements.txt.
+#
+# This file used to be the intended dashboard-dependency file, on the
+# (incorrect) assumption that Streamlit Community Cloud's "Advanced
+# settings" lets you point it at a custom-named requirements file. It
+# doesn't -- Cloud only auto-detects an exact filename
+# (uv.lock > Pipfile > environment.yml > requirements.txt > pyproject.toml),
+# so this file was silently never used, and a same-named environment.yml at
+# repo root shadowed the real requirements.txt instead -- causing a
+# ModuleNotFoundError ('plotly') in production. See
+# results/DATA_INTEGRITY_NOTES.md for the full story.
+#
+# Fix: repo-root requirements.txt now contains exactly what's below, and
+# environment.yml was renamed to environment.research.yml so it no longer
+# collides with Cloud's auto-discovery. Kept this file only so old
+# instructions referencing it don't 404 -- prefer requirements.txt.
+
 streamlit>=1.50
 pandas>=2.0
 plotly>=5.20

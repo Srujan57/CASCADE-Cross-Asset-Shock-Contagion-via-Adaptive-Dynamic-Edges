@@ -228,7 +228,7 @@ def main():
     with open(latex_path, "w", encoding="utf-8") as f:
         f.write(latex)
     print(f"[SAVED] {latex_path}")
-    print("\nAppend this table (Table 3) after Table 2 in the paper's Results section.")
+    print("\nLaTeX-formatted version of results/contagion_propagation_table.csv.")
 
 
 if __name__ == "__main__":

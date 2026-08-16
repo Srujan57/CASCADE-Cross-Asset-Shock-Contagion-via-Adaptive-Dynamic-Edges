@@ -1,10 +1,10 @@
 """
 scripts/event_catalog.py
 
-Scaffolds Kailash's Phase 2 task: "Build a manually curated event catalog:
-FTX, COVID, SVB, 2022 rate hikes, 2018 crypto winter. For each event,
-document the financial transmission narrative." No such catalog exists
-anywhere in the repo (no .md/.docx/.json event file was found).
+Builds a manually-curatable event catalog for six key historical shock
+events (FTX, COVID, SVB, the 2022 rate-hike cycle, the 2018 crypto winter,
+and the 2020 institutional Bitcoin adoption inflection): one structured
+record per event, ready for a human to attach the financial narrative.
 
 This script does NOT write the financial narratives — that requires
 domain judgment about transmission channels (dollar funding stress,
@@ -12,10 +12,10 @@ collateral channels, risk-off flows) that shouldn't be fabricated by a
 script. What it does is assemble every *quantitative* artifact the model
 pipeline already produces for each event — model spillover predictions,
 realized returns, and the most salient edges — into one structured record
-per event, with an empty "transmission_narrative" field for Kailash to
-fill in with the actual financial reasoning. This turns "write six
-paragraphs from scratch" into "check these numbers against what you
-already know happened, then explain the mechanism."
+per event, with an empty "transmission_narrative" field left for a human
+reviewer to fill in with the actual financial reasoning. This turns
+"write six paragraphs from scratch" into "check these numbers against
+what you already know happened, then explain the mechanism."
 
 Reads (only if already produced by other scripts — degrades gracefully
 if a given script hasn't been run yet):
@@ -40,11 +40,10 @@ import pandas as pd
 
 RESULTS_DIR = "results"
 
-# The six key events named explicitly in the project plan's "Key Shock
-# Events to Anchor Analysis" section. Two (2018 crypto winter, 2020
-# institutional adoption) are regime/period events rather than single-day
-# shocks, so they don't get a spillover injection — they're structural
-# framing for Experiment 4 instead.
+# Six key events used to anchor the shock-propagation and structural-break
+# analyses. Two (2018 crypto winter, 2020 institutional adoption) are
+# regime/period events rather than single-day shocks, so they don't get a
+# spillover injection — they're structural framing for Experiment 4 instead.
 EVENTS = [
     {"name": "COVID Crash", "date": "2020-03-12", "type": "single_day_shock",
      "source_asset": "SPY"},
@@ -139,7 +138,7 @@ def main():
     catalog = []
     for ev in EVENTS:
         record = dict(ev)
-        record["transmission_narrative"] = ""  # Kailash fills this in
+        record["transmission_narrative"] = ""  # left for a human reviewer to fill in
         record["financial_interpretation_notes"] = ""  # e.g. dollar funding
                                                           # stress, collateral
                                                           # channels, risk-off flows
@@ -156,10 +155,10 @@ def main():
         json.dump(catalog, f, indent=2, default=str)
 
     print(f"[SAVED] {out_path}")
-    print(f"{len(catalog)} events scaffolded. Kailash: fill in")
+    print(f"{len(catalog)} events scaffolded. Fill in")
     print("'transmission_narrative' and 'financial_interpretation_notes'")
-    print("for each event — this file is the backbone of the paper's")
-    print("event-study narrative and Discussion section.")
+    print("for each event by hand — everything else in this file is")
+    print("pre-filled from real pipeline outputs.")
 
 
 if __name__ == "__main__":

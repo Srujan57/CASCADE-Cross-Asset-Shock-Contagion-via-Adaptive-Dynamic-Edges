@@ -1,21 +1,3 @@
-"""
-Cross-Asset Contagion Project — Phase 1 Data Ingestion
-Ryan: Data & Econometrics Lead
-
-Matches config.yaml exactly:
-  - Tickers from assets section
-  - Date range from dates section
-  - Output paths from paths section (data/raw/, data/processed/)
-
-Run from repo root:
-    python scripts/data_ingestion.py
-
-Outputs:
-    data/raw/prices_raw.csv
-    data/processed/returns_matrix.csv
-    data/processed/data_quality_report.txt
-"""
-
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -154,8 +136,7 @@ def save_outputs(prices: pd.DataFrame, returns: pd.DataFrame):
 
 def main():
     print("\n" + "=" * 55)
-    print("  CROSS-ASSET CONTAGION — PHASE 1 DATA INGESTION")
-    print("  Ryan: Data & Econometrics Lead")
+    print("  CROSS-ASSET CONTAGION — DATA INGESTION")
     print("=" * 55 + "\n")
 
     create_folders()
@@ -165,7 +146,7 @@ def main():
     save_outputs(prices, returns)
 
     print("=" * 55)
-    print("  DONE. Hand these files to Srujan:")
+    print("  DONE. Next: scripts/build_graphs.py needs these files:")
     print("    → data/processed/returns_matrix.csv")
     print("    → data/processed/data_quality_report.txt")
     print("=" * 55 + "\n")

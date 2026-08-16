@@ -1,23 +1,6 @@
 """
 scripts/edge_importance.py
 
-Fills a real gap in the project plan: Phase 3 requires "attention weights
-showing which edges activate during shocks" as an interpretability output,
-and Phase 4 requires "attention weight evolution over time" as a paper
-figure. EvolveGCN-H (the architecture actually built in models/evolvegcn.py)
-has no attention mechanism — that trade-off belongs to TGAT, the plan's
-alternative architecture. Searching models/ and scripts/ confirms "attention"
-never appears in the codebase, so this output was never produced.
-
-This script does NOT retrofit fake attention onto EvolveGCN-H. Instead it
-computes gradient-based edge saliency, a standard and defensible substitute:
-for a chosen shock event, backpropagate the model's t+1 prediction at the
-shock's target node(s) with respect to every edge_weight in that snapshot's
-graph, and rank edges by |gradient|. This answers the same question the
-plan wants ("which edges activate during a shock") without pretending the
-model has attention it doesn't have. Document this substitution explicitly
-in the Methodology section — reviewers who know EvolveGCN-H will ask.
-
 Method:
     1. Load the trained checkpoint and the full snapshot sequence.
     2. For each known shock event (reuses the shock_events list from
@@ -260,8 +243,8 @@ def main():
         print(f"\n[SAVED] {summary_path}")
 
     print("\nDone. These are gradient saliency maps, not attention weights —")
-    print("state that explicitly in the paper's Methodology and Discussion")
-    print("sections when interpreting fig7_edge_importance_*.")
+    print("state that explicitly wherever fig7_edge_importance_* is used,")
+    print("since EvolveGCN-H has no attention mechanism to interpret.")
 
 
 if __name__ == "__main__":

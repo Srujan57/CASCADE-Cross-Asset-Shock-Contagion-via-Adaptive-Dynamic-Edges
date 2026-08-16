@@ -1,7 +1,7 @@
 """
 scripts/generate_figures.py
 
-Generates all paper figures for CASCADE.
+Generates all summary figures for CASCADE.
 
 Figures produced (saved to results/figures/):
     fig1_training_curves.pdf/png       — train vs val loss over epochs
@@ -75,7 +75,7 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 
 
 def save_fig(fig, name):
-    """Save figure as both PDF (for paper) and PNG (for preview)."""
+    """Save figure as both PDF (print-quality) and PNG (for preview/dashboard)."""
     for ext in ["pdf", "png"]:
         path = os.path.join(FIGURES_DIR, f"{name}.{ext}")
         fig.savefig(path)
@@ -524,7 +524,7 @@ def fig6_contagion_network(dcc_avg_path="data/processed/dcc_avg_correlation.csv"
 
 if __name__ == "__main__":
     print("=" * 55)
-    print("  CASCADE — Generating Paper Figures")
+    print("  CASCADE — Generating Figures")
     print("=" * 55)
 
     fig1_training_curves()

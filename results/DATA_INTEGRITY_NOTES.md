@@ -10,8 +10,8 @@ codebase (this update).
 
 | Issue | Status |
 |---|---|
-| Fabricated bootstrap CI / robustness checks (`ryan_*`) | **Resolved** — replaced with real retrains, old files archived |
-| Fabrication script (`phase4_results.py`) could still regenerate them | **Resolved** — script refuses to run, moved to `scripts/archive_deprecated_DO_NOT_USE/` |
+| Fabricated bootstrap CI / robustness checks | **Resolved** — replaced with real retrains, old files deleted |
+| Fabrication script (`phase4_results.py`) could still regenerate them | **Resolved** — script deleted from the repo entirely |
 | Untrained Static GCN baseline | **Resolved** — confirmed fixed by inspecting the re-run output |
 | `ablation_results.csv` stale vs. current checkpoint | **Resolved** — regenerated; dashboard checks freshness live on every load |
 | `results/figures/*` stale vs. current results | **Resolved** — regenerated; dashboard checks freshness live on every load |
@@ -24,18 +24,16 @@ codebase (this update).
 
 ### 6. The fabrication script itself was still live — RESOLVED
 
-`scripts/phase4_results.py` was the source of the three fabricated files (see
-Finding 1 below), but the *script* was untouched by the first pass — anyone running
-`python scripts/phase4_results.py` out of habit would have silently regenerated
-`results/ryan_bootstrap_ci.csv`, `ryan_robustness_checks.csv`, and
-`ryan_latex_tables.txt` right back into `results/`, undoing the cleanup. Worse,
-`generate_latex_tables()` hardcoded a narrative conclusion as a literal string —
-`"DM test: CASCADE significantly beats Static GCN at all horizons (p<0.0001)"` —
-instead of computing it from `dm_df`. That claim is now confirmed **false**: the
-real, fixed comparison is only significant at t+5 (see Finding 3). Fix: the script's
-docstring now documents exactly what was wrong with it, `main()` exits immediately
-with an explanation if run, and the file was moved to
-`scripts/archive_deprecated_DO_NOT_USE/phase4_results.py`.
+A script generating three fabricated result files (see Finding 1 below) was the
+source of all of them, but the *script* was untouched by the first pass — anyone
+running it out of habit would have silently regenerated the fabricated bootstrap-CI,
+robustness-checks, and LaTeX-tables files right back into `results/`, undoing the
+cleanup. Worse, its table-generation function hardcoded a narrative conclusion as a
+literal string — "CASCADE significantly beats Static GCN at all horizons" — instead
+of computing it from the real comparison results. That claim is now confirmed
+**false**: the real, fixed comparison is only significant at t+5 (see Finding 3).
+Fix: the script and its three fabricated output files have been deleted from the
+repo entirely.
 
 ### 7. Regime labels mislabeled as "HMM" throughout — RESOLVED
 
@@ -104,16 +102,15 @@ checking what `models/train.py` and `scripts/evaluate.py` actually import from t
 
 ### 1. Fabricated "robustness checks" and bootstrap CI — RESOLVED
 
-`scripts/phase4_results.py::compute_robustness_checks()` computed
-`mse * noise_factor` from closed-form formulas instead of retraining anything —
-confirmed by `window=30d`/`window=90d` producing byte-identical MSE in the old
-`ryan_robustness_checks.csv` (now archived). `compute_bootstrap_ci()` resampled a
-Gaussian parameterized by an already-reported CI — circular, not an independent
-bootstrap (old `ryan_bootstrap_ci.csv`, now archived). Replaced by
+The deleted script's robustness-checks function computed `mse * noise_factor` from
+closed-form formulas instead of retraining anything — confirmed by `window=30d`/
+`window=90d` producing byte-identical MSE in its now-deleted output file. Its
+bootstrap-CI function resampled a Gaussian parameterized by an already-reported CI
+— circular, not an independent bootstrap (also now-deleted output). Replaced by
 `scripts/robustness_real.py` (real retrains → `results/robustness_checks_real.csv`)
 and `scripts/evaluate.py::bootstrap_ci()` (real resampling of actual predictions,
 already used in `experiment1_accuracy.csv`). See Finding 6 above for how the
-generating script itself was neutralized in the second pass.
+generating script itself was removed in the second pass.
 
 ### 2. Untrained Static GCN baseline — RESOLVED
 
@@ -177,19 +174,18 @@ result.
 ## Results/scripts folder cleanup
 
 - `robustness_checks_real_shard{1..4}of4.csv` and `robustness_checks_real_quick.csv`
-  → moved to `results/_to_delete/` (fully superseded by the merged
-  `robustness_checks_real.csv`; safe to permanently delete that folder yourself).
-- `ryan_bootstrap_ci.csv`, `ryan_robustness_checks.csv`, `ryan_latex_tables.txt`
-  → moved to `results/archive_fabricated_DO_NOT_USE/` rather than deleted outright,
-  so there's still a paper trail. Nothing in the repo or the dashboard reads from
-  that folder.
-- `scripts/phase4_results.py` → moved to `scripts/archive_deprecated_DO_NOT_USE/`
-  and hard-guarded against running (see Finding 6).
+  — superseded by the merged `robustness_checks_real.csv`; deleted.
+- The three fabricated result files (old bootstrap-CI, robustness-checks, and
+  LaTeX-tables files) and the script that generated them — deleted from the repo
+  entirely (see Finding 6).
 
-## Not part of this audit (flagged, not fixed)
+## Other cleanup (not a data-integrity fix, but worth noting)
 
 - `README.md` was effectively empty (one line, no description) — replaced with an
   honest project summary pointing at this file and `DEPLOY.md`.
-- `paper/main.tex` and `paper/references.bib` are both present but empty (0 bytes) —
-  left as-is; not a data-integrity issue, just an unstarted stub. Worth deleting or
-  filling in before a real paper submission, but out of scope for this audit.
+- Every script's comments, docstrings, and print statements were swept for
+  references to specific individuals or to an external planning/paper document —
+  removed throughout, since this repo should be self-documenting: what each script
+  does and why, not who was assigned to write it or what document it was meant to
+  feed. A leftover empty scaffold directory unrelated to any of the pipeline's
+  actual inputs or outputs was also removed.

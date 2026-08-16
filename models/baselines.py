@@ -31,7 +31,7 @@ warnings.filterwarnings('ignore')
 
 def load_returns(path):
     """
-    Load returns_matrix.csv from Ryan's preprocessing pipeline.
+    Load returns_matrix.csv, produced by scripts/data_ingestion.py.
 
     index_col=0      : first column (dates) becomes the row index
     parse_dates=True : parse the index as datetime objects so you can
@@ -410,7 +410,7 @@ def directional_accuracy(predictions, actuals):
 
 def evaluate(predictions, actuals, label="Model"):
     """
-    Compute and print all three metrics. Returns dict for paper tables.
+    Compute and print all three metrics. Returns a dict of results.
 
     Args:
         predictions : np.array shape (n, num_assets)

@@ -1,9 +1,10 @@
 """
-Cross-Asset Contagion Project — Regime Label Fix (v2)
-Ryan: Data & Econometrics Lead
+scripts/fix_regime_labels.py
 
-Fix: Output BOTH daily and weekly regime labels so Srujan's
-     build_graphs.py swap_in_regime_labels() finds exact date matches.
+Computes VIX-threshold regime labels (calm/stress/crisis) and outputs BOTH
+daily and weekly versions, so scripts/build_graphs.py's
+swap_in_regime_labels() finds exact date matches against its weekly
+snapshots.
 
 VIX thresholds:
   VIX < 20  → calm   (label=0) ~60-70%
@@ -67,8 +68,7 @@ def print_distribution(labels, vix, title):
 
 def main():
     print("\n" + "=" * 55)
-    print("  REGIME LABEL FIX v2 — DAILY + WEEKLY OUTPUT")
-    print("  Ryan: Data & Econometrics Lead")
+    print("  REGIME LABELS — DAILY + WEEKLY OUTPUT")
     print("=" * 55 + "\n")
 
     os.makedirs(PROCESSED_PATH, exist_ok=True)
@@ -108,11 +108,12 @@ def main():
     print("\n" + "=" * 55)
     print("  DONE. Now run:")
     print("    git add .")
-    print('    git commit -m "Ryan: regime labels v2 - daily + weekly output"')
+    print('    git commit -m "Regenerate regime labels - daily + weekly output"')
     print("    git push")
     print("=" * 55 + "\n")
-    print("  Tell Srujan to update build_graphs.py to read")
-    print("  regime_labels_weekly.csv instead of regime_labels.csv")
+    print("  Note: scripts/build_graphs.py reads regime_labels.csv (daily)")
+    print("  by default — use regime_labels_weekly.csv instead if you want")
+    print("  pre-resampled weekly labels.")
 
 
 if __name__ == "__main__":

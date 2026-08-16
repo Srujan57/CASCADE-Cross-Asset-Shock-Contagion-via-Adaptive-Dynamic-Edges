@@ -1,11 +1,12 @@
 """
-Cross-Asset Contagion Project — Phase 2 Econometrics
-Ryan: Data & Econometrics Lead
+scripts/phase2_econometrics.py
 
-Produces three outputs Srujan needs for the GNN:
+Produces three inputs the GNN pipeline needs:
   1. data/processed/dcc_correlations.pkl  — DCC-GARCH edge weights
   2. data/processed/granger_pvalues.csv   — Granger causality edge directions
-  3. data/processed/regime_labels.csv     — Regime labels (0=calm,1=stress,2=crisis)
+  3. data/processed/regime_labels_kmeans_ALTERNATIVE.csv — an alternative
+     K-means regime detector (NOT used by the main pipeline — see
+     compute_regime_labels()'s header comment below)
 
 Run from repo root:
     python scripts/phase2_econometrics.py
@@ -265,8 +266,7 @@ def compute_regime_labels(returns_df):
 
 def main():
     print("\n" + "=" * 55)
-    print("  CROSS-ASSET CONTAGION — PHASE 2 ECONOMETRICS")
-    print("  Ryan: Data & Econometrics Lead")
+    print("  CROSS-ASSET CONTAGION — ECONOMETRICS")
     print("=" * 55 + "\n")
 
     os.makedirs(PROCESSED_PATH, exist_ok=True)
@@ -277,7 +277,7 @@ def main():
     regime  = compute_regime_labels(returns)
 
     print("=" * 55)
-    print("  PHASE 2 DONE. Files for Srujan:")
+    print("  DONE. Outputs:")
     print("    -> data/processed/dcc_correlations.pkl")
     print("    -> data/processed/granger_pvalues.csv")
     print("    -> data/processed/dcc_avg_correlation.csv")

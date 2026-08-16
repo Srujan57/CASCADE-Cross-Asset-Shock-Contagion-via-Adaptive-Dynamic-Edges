@@ -1,16 +1,15 @@
 """
 scripts/identify_shocks.py
 
-Programmatic shock-event identification (Phase 2, Kailash's task per the
-project plan: "Define shock events formally: use threshold return < -2 sigma
-on each asset to programmatically identify shock dates").
-
-This file previously existed but was empty (0 lines) — the hand-picked
-events used in scripts/evaluate.py (COVID, FTX, SVB, 2022 rate shock) were
-never actually validated against a systematic threshold rule. This script
-does that validation and produces the full candidate list so Kailash can
-build the curated event catalog on top of something reproducible, not just
+Programmatic shock-event identification: flags shock dates using a
+threshold return rule (< -2 sigma on each asset) rather than relying on
 memory of well-known dates.
+
+The hand-picked events used in scripts/evaluate.py (COVID, FTX, SVB, 2022
+rate shock) were never actually validated against a systematic threshold
+rule. This script does that validation and produces the full candidate
+list, so the curated event catalog (scripts/event_catalog.py) is built on
+top of something reproducible.
 
 Method:
     Rolling z-score per asset: z_t = (r_t - mean_252) / std_252
@@ -46,9 +45,9 @@ Z_THRESHOLD    = -2.0
 MIN_HISTORY    = 60      # need at least this many days before computing z
 
 # The four events currently hardcoded in scripts/evaluate.py — cross-checked
-# below against the systematic rule so Kailash knows which are backed by the
-# -2 sigma definition and which are curated for other reasons (e.g. the
-# 2022 rate shock is a slower-moving regime event, not a single-day -2 sigma
+# below against the systematic rule to show which are backed by the -2
+# sigma definition and which are curated for other reasons (e.g. the 2022
+# rate shock is a slower-moving regime event, not a single-day -2 sigma
 # print, so it's expected NOT to show up here).
 HANDPICKED_EVENTS = [
     {"name": "COVID Crash",     "date": "2020-03-12", "asset": "SPY"},
@@ -106,8 +105,8 @@ def market_wide_events(shock_df, min_assets=2):
     Collapse asset-level shocks into market-wide candidate events: days
     where at least `min_assets` distinct assets breach -2 sigma. These are
     the days most likely to represent genuine cross-asset contagion rather
-    than an idiosyncratic single-name move, and are the natural pool to draw
-    the paper's curated event catalog from.
+    than an idiosyncratic single-name move, and are the natural candidate
+    pool for scripts/event_catalog.py's curated event list.
     """
     if shock_df.empty:
         return pd.DataFrame()
@@ -128,12 +127,12 @@ def crosscheck_handpicked(shock_df, returns_df, asset_cols):
     """
     For each hand-picked event in evaluate.py, report whether the source
     asset actually breached -2 sigma on (or within 3 days of) that date,
-    per the systematic rule. This is a sanity check on the paper's curated
-    event catalog, not a replacement for it — some genuinely important
-    events (slow-moving regime shifts like the 2022 rate hike cycle) will
-    not show up as single-day -2 sigma prints, and that's fine as long as
-    the paper is explicit about which events are threshold-derived vs
-    narrative-selected.
+    per the systematic rule. This is a sanity check on the curated event
+    catalog, not a replacement for it — some genuinely important events
+    (slow-moving regime shifts like the 2022 rate hike cycle) will not show
+    up as single-day -2 sigma prints, and that's fine as long as it's
+    disclosed explicitly which events are threshold-derived vs
+    narrative-selected (see the console output below).
     """
     print("\nCross-check: hand-picked events in scripts/evaluate.py")
     print("-" * 70)
@@ -154,7 +153,7 @@ def crosscheck_handpicked(shock_df, returns_df, asset_cols):
             print(f"  [NOT A -2sigma PRINT] {ev['name']:16s} {asset:5s} "
                   f"near {target_date.date()} — likely a regime/narrative "
                   f"event rather than a single-day statistical outlier; "
-                  f"document this distinction in the Methodology section.")
+                  f"disclose this distinction wherever this event is cited.")
     print("-" * 70)
 
 
@@ -196,7 +195,7 @@ def main():
     crosscheck_handpicked(shock_df, returns_df, asset_cols)
 
     print("\nDone. Use results/shock_events_market_wide.csv as the candidate")
-    print("pool for the curated event catalog in the paper's Data section.")
+    print("pool for scripts/event_catalog.py's curated event list.")
 
 
 if __name__ == "__main__":

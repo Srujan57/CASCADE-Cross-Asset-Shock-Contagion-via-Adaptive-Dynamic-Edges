@@ -348,7 +348,8 @@ def swap_in_dcc_edges(snapshots, dcc_path, asset_names, threshold=0.3):
     """
     Replace rolling correlation edge weights with DCC-GARCH correlations.
 
-    Ryan's DCC dict is keyed by DAILY dates. Snapshots are WEEKLY.
+    The DCC dict (scripts/phase2_econometrics.py output) is keyed by DAILY
+    dates. Snapshots are WEEKLY.
     We find the nearest DCC date within 7 days of each snapshot date
     rather than requiring exact match (which would silently skip everything).
     """
@@ -433,7 +434,8 @@ if __name__ == "__main__":
     RETURNS_PATH  = "data/processed/returns_matrix.csv"
     OUTPUT_PATH   = "data/processed/graph_snapshots.pkl"
 
-    # Optional — swap in when Ryan delivers these
+    # Optional — swapped in once scripts/fix_regime_labels.py /
+    # scripts/phase2_econometrics.py have produced these files
     REGIME_PATH   = "data/processed/regime_labels.csv"
     DCC_PATH      = "data/processed/dcc_correlations.pkl"
 
