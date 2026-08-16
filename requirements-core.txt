@@ -1,0 +1,29 @@
+# The ACTUAL runtime dependencies of scripts/ and models/, derived by
+# grepping every import/from statement in this repo (2026-08-16) rather
+# than trusting requirements.txt, which is a raw `pip freeze` of a broader
+# dev environment and pulls in ~150 packages the pipeline never imports
+# (JupyterLab, GitPython, sentry-sdk, prometheus_client, fredapi,
+# pycoingecko, ...). Prefer this file for a clean install; use
+# requirements.txt only if you specifically want the notebook/dev tooling
+# that came with the original environment too.
+#
+# torch's CPU-only wheels (+cpu suffix) aren't on PyPI's default index —
+# this line points pip at PyTorch's own index so `torch` resolves.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+numpy
+pandas
+scipy
+pyyaml
+torch
+torch-geometric
+statsmodels
+arch
+scikit-learn
+matplotlib
+yfinance
+
+# Used only if present — both are wrapped in try/except in the code, so
+# the pipeline runs fine without them:
+networkx          # scripts/generate_figures.py fig6 (contagion network plot)
+wandb             # models/train.py optional experiment tracking

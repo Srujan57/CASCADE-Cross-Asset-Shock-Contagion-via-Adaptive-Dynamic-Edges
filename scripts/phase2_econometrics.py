@@ -166,8 +166,16 @@ def compute_granger_causality(returns_df):
 
 # ─────────────────────────────────────────────
 # STEP 3: REGIME DETECTION (no hmmlearn)
-# Uses VIX-based threshold clustering — same 3 states,
-# no C++ build tools required
+# K-means clustering (3 states) on VIX level + credit spread + equity vol —
+# see compute_regime_labels()'s docstring below for the actual method.
+#
+# NOT USED BY THE MAIN PIPELINE: this writes to the same path
+# (data/processed/regime_labels.csv) as scripts/fix_regime_labels.py's
+# simpler VIX-threshold rule, which is what build_graphs.py / evaluate.py
+# actually consume for the reported results. Running this script would
+# silently overwrite that file with a different regime definition — do not
+# run it as part of the standard pipeline. Kept here as an alternative
+# regime-detection method, not wired into results/.
 # ─────────────────────────────────────────────
 
 def compute_regime_labels(returns_df):
@@ -237,9 +245,16 @@ def compute_regime_labels(returns_df):
         bar = "█" * int(pct / 2)
         print(f"    {names[state]:8s} (label={state}): {count:>5} days ({pct:.1f}%) {bar}")
 
-    out_path = os.path.join(PROCESSED_PATH, "regime_labels.csv")
+    # Written to a distinct filename — NOT regime_labels.csv — so this never
+    # collides with scripts/fix_regime_labels.py's VIX-threshold output, which
+    # is the one build_graphs.py / evaluate.py actually read. See this
+    # function's header comment above for why both exist.
+    out_path = os.path.join(PROCESSED_PATH, "regime_labels_kmeans_ALTERNATIVE.csv")
     regime_series.to_csv(out_path, header=True)
-    print(f"\n  [SAVED] {out_path}\n")
+    print(f"\n  [SAVED] {out_path}")
+    print("  (alternative regime detector — NOT used by the main pipeline;")
+    print("   the pipeline reads data/processed/regime_labels.csv, produced by")
+    print("   scripts/fix_regime_labels.py instead)\n")
 
     return regime_series
 
@@ -266,7 +281,9 @@ def main():
     print("    -> data/processed/dcc_correlations.pkl")
     print("    -> data/processed/granger_pvalues.csv")
     print("    -> data/processed/dcc_avg_correlation.csv")
-    print("    -> data/processed/regime_labels.csv")
+    print("    -> data/processed/regime_labels_kmeans_ALTERNATIVE.csv")
+    print("       (NOT used by the pipeline — run scripts/fix_regime_labels.py")
+    print("        separately to produce the regime_labels.csv the model reads)")
     print("=" * 55 + "\n")
 
 

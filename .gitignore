@@ -7,6 +7,9 @@ results/checkpoints/
 results/*.pkl
 results/wandb/
 
+# ── Results: scratch/cleanup, never worth committing ──────
+results/_to_delete/
+
 # ── Model weights ────────────────────────────────────────
 *.pt
 *.pth

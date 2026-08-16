@@ -1,0 +1,8 @@
+# Minimal dependencies for streamlit_app.py (the results dashboard only).
+# This is intentionally separate from requirements.txt / environment.yml,
+# which pin the full research pipeline (torch, torch-geometric, arch,
+# statsmodels, yfinance, jupyter, ...) needed to regenerate results/, not to
+# view them. Streamlit Community Cloud should install from this file.
+streamlit>=1.50
+pandas>=2.0
+plotly>=5.20

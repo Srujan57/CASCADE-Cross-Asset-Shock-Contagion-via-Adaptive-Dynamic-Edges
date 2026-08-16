@@ -119,6 +119,83 @@ def bootstrap_ci(preds, actuals, metric_fn, n_boot=1000, alpha=0.05):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Static GCN baseline training
+#
+# INTEGRITY FIX (see results/DATA_INTEGRITY_NOTES.md): previous versions of
+# this script instantiated StaticGCN and called .eval() WITHOUT ever training
+# it — every "Static GCN" number in experiment1_accuracy.csv and
+# diebold_mariano_results.csv was therefore a randomly-initialized network,
+# not a trained baseline. Comparing CASCADE to random weights is not a
+# meaningful ablation and produces a misleadingly large "improvement" number
+# (MSE ~40x worse than every other baseline is the signature of an untrained
+# network, not evidence about the value of temporal edge evolution). This
+# trains StaticGCN the same way models/train.py trains EvolveGCN-H: full-batch
+# gradient descent on the training snapshots, early stopping on validation
+# loss, before it is ever used for evaluation.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def train_static_gcn(static_gcn, train_snaps, tv_snaps, val_local,
+                     targets, train_pos, val_pos, tv_pos, config):
+    optimizer = torch.optim.Adam(
+        static_gcn.parameters(), lr=config["training"]["lr"], weight_decay=1e-5
+    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=10
+    )
+
+    epochs    = config["training"]["epochs"]
+    patience  = config["training"]["early_stopping_patience"]
+    eval_freq = 5
+    best_val_loss    = float("inf")
+    best_state        = None
+    patience_counter  = 0
+    train_indices     = list(range(len(train_pos)))
+
+    print("\nTraining Static GCN baseline (was previously left untrained)...")
+    for epoch in range(1, epochs + 1):
+        static_gcn.train()
+        optimizer.zero_grad()
+        train_preds = static_gcn(train_snaps)
+        loss = sum(
+            torch.nn.functional.mse_loss(
+                train_preds[h][train_indices, :, 0], targets[h][train_pos]
+            ) for h in ["t1", "t5", "t10"]
+        ) / 3
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(static_gcn.parameters(), max_norm=1.0)
+        optimizer.step()
+
+        if epoch % eval_freq == 0:
+            static_gcn.eval()
+            with torch.no_grad():
+                tv_preds = static_gcn(tv_snaps)
+                val_loss = sum(
+                    torch.nn.functional.mse_loss(
+                        tv_preds[h][val_local, :, 0],
+                        targets[h][[tv_pos[i] for i in val_local]]
+                    ) for h in ["t1", "t5", "t10"]
+                ) / 3
+                val_loss_f = float(val_loss)
+            scheduler.step(val_loss_f)
+
+            if val_loss_f < best_val_loss:
+                best_val_loss = val_loss_f
+                best_state = {k: v.clone() for k, v in static_gcn.state_dict().items()}
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                if patience_counter >= patience // eval_freq:
+                    print(f"  Static GCN early stopping at epoch {epoch}")
+                    break
+
+    if best_state is not None:
+        static_gcn.load_state_dict(best_state)
+    static_gcn.eval()
+    print(f"  Static GCN trained. Best val loss: {best_val_loss:.8f}")
+    return static_gcn
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Shock injection
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -516,6 +593,13 @@ def evaluate(config_path="config.yaml"):
     all_snaps  = to_model_input(snapshots, all_pos, valid_indices)
     test_local = list(range(len(train_pos) + len(val_pos), len(all_pos)))
 
+    # Needed to actually train the Static GCN baseline below (see
+    # train_static_gcn) — same train/val split machinery models/train.py uses.
+    train_snaps_sg = to_model_input(snapshots, train_pos, valid_indices)
+    tv_pos_sg      = train_pos + val_pos
+    tv_snaps_sg    = to_model_input(snapshots, tv_pos_sg, valid_indices)
+    val_local_sg   = list(range(len(train_pos), len(train_pos) + len(val_pos)))
+
     # ── Load trained GNN ──────────────────────────────────────────────────
     if not os.path.exists(CHECKPOINT_PATH):
         print(f"No checkpoint found at {CHECKPOINT_PATH}")
@@ -572,7 +656,11 @@ def evaluate(config_path="config.yaml"):
         hidden_dim=config["model"]["hidden_dim"],
         num_layers=config["model"]["num_layers"],
     )
-    static_gcn.eval()
+    torch.manual_seed(config["training"]["seed"])
+    static_gcn = train_static_gcn(
+        static_gcn, train_snaps_sg, tv_snaps_sg, val_local_sg,
+        targets, train_pos, val_pos, tv_pos_sg, config
+    )
 
     # ── Experiment 1 — Predictive Accuracy ────────────────────────────────
     all_exp1_results = []

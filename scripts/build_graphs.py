@@ -13,8 +13,15 @@ Each snapshot is a tuple: (x, edge_index, edge_weight, date)
 
 Current edge weights:  rolling Pearson correlation (60-day window)
 Swap-in when ready:    DCC-GARCH  → call swap_in_dcc_edges()
-Current regime labels: placeholder 0 (calm)
-Swap-in when ready:    HMM output → call swap_in_regime_labels()
+Current regime labels: placeholder 0 (calm) until data/processed/regime_labels.csv exists
+Swap-in when ready:    VIX-threshold regime labels (scripts/fix_regime_labels.py)
+                        → call swap_in_regime_labels()
+                        NOTE: not an HMM, despite earlier comments in this file saying
+                        so — the actual method is a simple VIX-level threshold rule
+                        (calm/stress/crisis via VIX < 20 / 20-30 / > 30). A separate,
+                        unrelated K-means-based regime detector also exists in
+                        scripts/phase2_econometrics.py but is NOT used by this pipeline
+                        (see that script's own note) — do not confuse the two.
 
 Run: python scripts/build_graphs.py
 """
@@ -151,7 +158,9 @@ def build_node_features(returns_row, vol_row, vix_value, regime=0.0):
         returns_row : pd.Series — returns for all assets on snapshot date
         vol_row     : pd.Series — rolling vol for all assets on snapshot date
         vix_value   : float — VIX level on this date (same for all nodes)
-        regime      : float — HMM regime label (0=calm placeholder until Ryan)
+        regime      : float — VIX-threshold regime label, 0=calm/1=stress/2=crisis
+                      (0=placeholder until data/processed/regime_labels.csv exists;
+                      NOT an HMM output, see module docstring)
 
     Returns:
         x : torch.FloatTensor (num_assets, 4)
@@ -182,7 +191,8 @@ def build_snapshots(returns_df, config, regime_labels=None, verbose=True):
     Args:
         returns_df    : cleaned returns DataFrame (dates × assets)
         config        : loaded config.yaml dict
-        regime_labels : optional pd.Series — HMM output indexed by date
+        regime_labels : optional pd.Series — VIX-threshold regime labels indexed by
+                        date (scripts/fix_regime_labels.py), NOT an HMM output.
                         If None, regime column is set to 0.0 (placeholder)
         verbose       : print progress
 
@@ -212,7 +222,7 @@ def build_snapshots(returns_df, config, regime_labels=None, verbose=True):
         print(f"  Edge threshold        : |r| > {threshold}")
         print(f"  Vol window            : {vol_win} days")
         print(f"  Assets (nodes)        : {len(asset_cols)}")
-        print(f"  Regime labels         : {'Ryan HMM' if regime_labels is not None else 'placeholder (0)'}")
+        print(f"  Regime labels         : {'VIX-threshold' if regime_labels is not None else 'placeholder (0)'}")
         print()
 
     snapshots = []
@@ -298,14 +308,15 @@ def split_snapshots(snapshots, config):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Swap-in functions — upgrade placeholders with Ryan's real outputs
+# Swap-in functions — upgrade placeholders with real outputs
 # ─────────────────────────────────────────────────────────────────────────────
 
 def swap_in_regime_labels(snapshots, regime_labels_path):
     """
-    Replace placeholder regime labels (0.0) with Ryan's HMM output.
+    Replace placeholder regime labels (0.0) with VIX-threshold regime labels
+    (scripts/fix_regime_labels.py). NOT an HMM output — see module docstring.
 
-    Call this after Ryan delivers data/processed/regime_labels.csv.
+    Call this after data/processed/regime_labels.csv exists.
     The rest of the pipeline (model, training) needs no changes.
 
     Args:

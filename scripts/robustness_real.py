@@ -175,11 +175,83 @@ def run_variant(returns_df, config, asset_subset=None, quick=False, seed=42):
     return results
 
 
+def build_job_list(returns_df):
+    """
+    Enumerate all 8 robustness-check variants as independent job descriptors
+    (kind, label, run_kwargs, is_baseline). Each job is a full, real retrain —
+    nothing here changes what gets trained, only how the 8 jobs get divided
+    up across processes. Kept as a plain list (not generators) so --shard can
+    index into it deterministically.
+    """
+    jobs = []
+
+    for thresh in [0.2, 0.3, 0.4]:
+        jobs.append({
+            "check": "corr_threshold", "parameter": f"threshold={thresh}",
+            "baseline": thresh == 0.3,
+            "kwargs": {"config_overrides": {"graph": {"corr_threshold": thresh}}},
+        })
+
+    for window in [30, 60, 90]:
+        jobs.append({
+            "check": "rolling_window", "parameter": f"window={window}d",
+            "baseline": window == 60,
+            "kwargs": {"config_overrides": {"graph": {"rolling_window_days": window}}},
+        })
+
+    full_assets = [c for c in returns_df.columns if c != "VIX"]
+    reduced_assets = [a for a in full_assets if a not in DROPPED_ASSETS]
+    for label, subset in [("11-asset (full)", None),
+                          (f"{len(reduced_assets)}-asset (drop {','.join(DROPPED_ASSETS)})", reduced_assets)]:
+        jobs.append({
+            "check": "asset_universe", "parameter": label,
+            "baseline": subset is None,
+            "kwargs": {"asset_subset": subset},
+        })
+
+    return jobs
+
+
+def run_job(job, returns_df, base_config, quick):
+    cfg = copy.deepcopy(base_config)
+    overrides = job["kwargs"].get("config_overrides", {})
+    for section, kv in overrides.items():
+        cfg[section].update(kv)
+    asset_subset = job["kwargs"].get("asset_subset")
+    return run_variant(returns_df, cfg, asset_subset=asset_subset, quick=quick)
+
+
+def parse_shard(shard_str):
+    """'2/4' -> (2, 4). '1/1' (default) means no sharding — run everything."""
+    try:
+        k, n = shard_str.split("/")
+        k, n = int(k), int(n)
+        assert 1 <= k <= n
+    except Exception:
+        raise SystemExit(f"--shard must look like 'K/N' with 1<=K<=N, got {shard_str!r}")
+    return k, n
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true",
                         help="Fast smoke test (15 epochs) instead of full training runs.")
+    parser.add_argument("--shard", default="1/1",
+                        help="Run only this shard of the 8 independent jobs, e.g. "
+                             "'1/3' '2/3' '3/3' run in three separate terminals to use "
+                             "more CPU cores at once. Every shard trains real models on "
+                             "the real data — this only changes wall-clock time, not "
+                             "what gets computed. Default '1/1' runs everything serially "
+                             "in one process, same as before.")
+    parser.add_argument("--threads", type=int, default=None,
+                        help="torch.set_num_threads() for this process. Set this when "
+                             "running multiple shards in parallel so they don't all "
+                             "fight over every CPU core (e.g. 4 physical cores, 2 "
+                             "shards -> --threads 2 each).")
     args = parser.parse_args()
+
+    if args.threads is not None:
+        torch.set_num_threads(args.threads)
 
     if not os.path.exists(RETURNS_PATH):
         print(f"{RETURNS_PATH} not found. Run scripts/data_ingestion.py first.")
@@ -187,6 +259,10 @@ def main():
 
     base_config = load_config("config.yaml")
     returns_df = load_returns(RETURNS_PATH)
+
+    shard_k, shard_n = parse_shard(args.shard)
+    all_jobs = build_job_list(returns_df)
+    my_jobs = [j for i, j in enumerate(all_jobs) if i % shard_n == (shard_k - 1)]
 
     print("=" * 60)
     print("  REAL Robustness Checks (replaces phase4_results.py's")
@@ -196,62 +272,40 @@ def main():
         print("  --quick mode: 15 epochs per run, for pipeline smoke-testing")
         print("  ONLY. Re-run without --quick before using these numbers")
         print("  in the paper.")
+    if shard_n > 1:
+        print(f"  Shard {shard_k}/{shard_n}: running {len(my_jobs)} of "
+              f"{len(all_jobs)} total jobs in this process.")
+        print("  Run the other shard(s) in separate terminals, then merge —")
+        print("  see the merge command printed at the end of each shard.")
     print()
 
     rows = []
-
-    # (a) Correlation threshold sensitivity
-    for thresh in [0.2, 0.3, 0.4]:
-        cfg = copy.deepcopy(base_config)
-        cfg["graph"]["corr_threshold"] = thresh
-        print(f"[a] corr_threshold={thresh} — training...")
-        res = run_variant(returns_df, cfg, quick=args.quick)
+    for job in my_jobs:
+        print(f"[{job['check']}] {job['parameter']} — training...")
+        res = run_job(job, returns_df, base_config, quick=args.quick)
         for h, m in res.items():
-            rows.append({"robustness_check": "corr_threshold",
-                        "parameter": f"threshold={thresh}", "horizon": h,
+            rows.append({"robustness_check": job["check"],
+                        "parameter": job["parameter"], "horizon": h,
                         "mse": m["mse"], "mae": m["mae"],
                         "directional_accuracy": m["directional_accuracy"],
-                        "baseline": thresh == 0.3})
-        print(f"    t1 MSE={res['t1']['mse']:.8f}")
-
-    # (b) Rolling window sensitivity
-    for window in [30, 60, 90]:
-        cfg = copy.deepcopy(base_config)
-        cfg["graph"]["rolling_window_days"] = window
-        print(f"[b] rolling_window={window}d — training...")
-        res = run_variant(returns_df, cfg, quick=args.quick)
-        for h, m in res.items():
-            rows.append({"robustness_check": "rolling_window",
-                        "parameter": f"window={window}d", "horizon": h,
-                        "mse": m["mse"], "mae": m["mae"],
-                        "directional_accuracy": m["directional_accuracy"],
-                        "baseline": window == 60})
-        print(f"    t1 MSE={res['t1']['mse']:.8f}")
-
-    # (c) Reduced asset universe
-    full_assets = [c for c in returns_df.columns if c != "VIX"]
-    reduced_assets = [a for a in full_assets if a not in DROPPED_ASSETS]
-
-    for label, subset in [("11-asset (full)", None),
-                          (f"{len(reduced_assets)}-asset (drop {','.join(DROPPED_ASSETS)})", reduced_assets)]:
-        print(f"[c] asset_universe={label} — training...")
-        res = run_variant(returns_df, base_config, asset_subset=subset, quick=args.quick)
-        for h, m in res.items():
-            rows.append({"robustness_check": "asset_universe",
-                        "parameter": label, "horizon": h,
-                        "mse": m["mse"], "mae": m["mae"],
-                        "directional_accuracy": m["directional_accuracy"],
-                        "baseline": subset is None})
+                        "baseline": job["baseline"]})
         print(f"    t1 MSE={res['t1']['mse']:.8f}")
 
     df = pd.DataFrame(rows)
     os.makedirs(RESULTS_DIR, exist_ok=True)
     suffix = "_quick" if args.quick else ""
-    out_path = os.path.join(RESULTS_DIR, f"robustness_checks_real{suffix}.csv")
+    shard_suffix = f"_shard{shard_k}of{shard_n}" if shard_n > 1 else ""
+    out_path = os.path.join(RESULTS_DIR, f"robustness_checks_real{suffix}{shard_suffix}.csv")
     df.to_csv(out_path, index=False)
 
     print("\n" + "=" * 60)
     print(f"  [SAVED] {out_path}")
+    if shard_n > 1:
+        print(f"  Once all {shard_n} shards finish, merge them:")
+        print(f"    python -c \"import pandas as pd, glob; "
+              f"pd.concat([pd.read_csv(f) for f in "
+              f"glob.glob('results/robustness_checks_real{suffix}_shard*of{shard_n}.csv')])"
+              f".to_csv('results/robustness_checks_real{suffix}.csv', index=False)\"")
     if args.quick:
         print("  This is a smoke test, not paper-ready. Re-run without")
         print("  --quick and use robustness_checks_real.csv (no suffix)")

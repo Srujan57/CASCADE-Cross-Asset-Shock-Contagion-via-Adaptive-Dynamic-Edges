@@ -23,7 +23,9 @@ graph:
 # ── Node Features ────────────────────────────────────────────────────────────
 features:
   vol_window_days: 30           # realized volatility lookback
-  regime_states:   3            # HMM states: calm / stress / crisis
+  regime_states:   3            # calm / stress / crisis, from VIX-threshold labels
+                                 # (scripts/fix_regime_labels.py) — not an HMM, despite
+                                 # older comments elsewhere in this repo saying so
 
 # ── Model ────────────────────────────────────────────────────────────────────
 model:
